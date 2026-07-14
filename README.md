@@ -8,7 +8,7 @@ Internal workforce visibility & coordination platform. A monorepo with three sur
 FieldOps/
 ├── backend/          FastAPI + MongoDB (Motor) — REST API under /api/v1
 ├── admin/            React + Vite + TypeScript + Tailwind v4 — ops admin panel
-├── app/              Expo SDK 57 / React Native — field employee app
+├── app/              Expo SDK 54 / React Native — field employee app
 └── docker-compose.yml  Local MongoDB 7
 ```
 
@@ -34,7 +34,7 @@ Onboarding → register (domain allow-list) → location consent → capturing �
 | Node    | 22 LTS (nvm)         | `.nvmrc` at repo root          |
 | Python  | 3.12                 | `backend/.venv`                |
 | MongoDB | 7 (Docker)           | `localhost:27017`              |
-| Expo    | SDK 57 / RN 0.86     | React 19                       |
+| Expo    | SDK 54 / RN 0.81     | React 19 · Play Store Expo Go  |
 
 ## Prerequisites
 
@@ -65,7 +65,7 @@ cd admin && nvm use && npm install && npm run dev
 
 # 3) Field app
 cd app && nvm use && npm install && npx expo start
-# press i / a / w, or Expo Go (needs SDK 57-compatible Expo Go)
+# press i / a / w, or Expo Go (SDK 54 — matches Play Store / App Store)
 ```
 
 Optional presence simulator (keeps Live Map “online” without the phone):
@@ -138,6 +138,6 @@ cd backend && ./.venv/bin/python simulate_presence.py
 # Admin production build
 cd admin && npm run build
 
-# Field app web export (fallback when Expo Go SDK mismatches)
+# Field app web export
 cd app && npx expo export --platform web
 ```
