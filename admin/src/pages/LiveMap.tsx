@@ -52,7 +52,8 @@ const POINT_HALO_LAYER = 'op-unclustered-halo'
 
 function timeAgo(iso: string | null): string {
   if (!iso) return 'never'
-  const secs = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
+  const hasTz = /([zZ]|[+-]\d{2}:?\d{2})$/.test(iso)
+  const secs = Math.max(0, (Date.now() - new Date(hasTz ? iso : `${iso}Z`).getTime()) / 1000)
   if (secs < 60) return `${Math.floor(secs)}s`
   if (secs < 3600) return `${Math.floor(secs / 60)}m`
   if (secs < 86400) return `${Math.floor(secs / 3600)}h`
@@ -1172,7 +1173,7 @@ function DetailDrawer({
                   <div className="mono" style={{ fontSize: 10, color: '#5BC7BB', marginTop: 4 }}>
                     Last ping {timeAgo(user.lastPingAt)} ago
                     {user.lastPingAt
-                      ? ` · ${new Date(user.lastPingAt).toLocaleString('en-GB', {
+                      ? ` · ${new Date(/([zZ]|[+-]\d{2}:?\d{2})$/.test(user.lastPingAt) ? user.lastPingAt : `${user.lastPingAt}Z`).toLocaleString('en-GB', {
                           day: '2-digit',
                           month: 'short',
                           hour: '2-digit',
