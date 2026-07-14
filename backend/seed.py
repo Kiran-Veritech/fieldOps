@@ -131,9 +131,10 @@ ASSET_SPECS = [
 
 
 async def clear_db() -> None:
+    """Wipe FieldOps collections without dropCollection (Atlas readWrite-friendly)."""
     db = get_db()
     for name in COLLECTIONS:
-        await db.drop_collection(name)
+        await db[name].delete_many({})
 
 
 async def seed_users() -> tuple[list[dict], list[dict]]:
