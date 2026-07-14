@@ -14,13 +14,20 @@ type User = {
   designation: string
   category: CategoryKey
   deviceId: string
+  deviceName?: string
   appVersion: string
   online: boolean
   initialLocation: Geo | null
 }
 type Detail = {
   user: User
-  registration: { deviceId: string; appVersion: string; initialLocation: Geo | null; createdAt: string | null }
+  registration: {
+    deviceId: string
+    deviceName?: string
+    appVersion: string
+    initialLocation: Geo | null
+    createdAt: string | null
+  }
   locationHistory: { lat: number; lng: number; at: string }[]
 }
 type Project = { _id: string; code: string; name: string; status: string; memberIds: string[] }
@@ -125,6 +132,7 @@ export function UserDetail() {
           {/* LEFT */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <Panel title="REGISTRATION METADATA">
+              <MetaRow label="DEVICE" value={detail.registration.deviceName || detail.user.deviceName || '—'} />
               <MetaRow label="DEVICE ID" value={detail.registration.deviceId} valueColor="#3DD5C6" />
               <MetaRow label="APP VERSION" value={detail.registration.appVersion || '—'} />
               <MetaRow label="REGISTERED AT" value={`${fmtDateTime(detail.registration.createdAt)}`} />

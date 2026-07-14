@@ -18,6 +18,7 @@ type User = {
   designation: string
   category: CategoryKey
   deviceId: string
+  deviceName?: string
   status: string
   lastPingAt: string | null
   online: boolean
@@ -218,9 +219,14 @@ export function Users() {
                 </div>
                 <span className="mono" style={{ fontSize: 12, color: '#97A6BC', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.workEmail}</span>
                 <span style={{ fontSize: 12, color: '#C7D2E1', display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}><span style={{ width: 9, height: 9, borderRadius: '50%', background: color, flex: 'none' }} /><span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.designation}</span></span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                  <span className="mono" style={{ fontSize: 11, color: u.flagged ? '#FF8A80' : '#97A6BC', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.deviceId}</span>
-                  <span className="copybtn" onClick={() => copyDevice(u.deviceId)} title="Copy device ID" style={{ color: '#5A6B84', cursor: 'pointer', flex: 'none', display: 'flex' }}><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.4}><rect x="5" y="5" width="9" height="9" rx="1" /><path d="M3 11V3a1 1 0 0 1 1-1h7" /></svg></span>
+                <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                    <span className="mono" style={{ fontSize: 11, color: u.flagged ? '#FF8A80' : '#97A6BC', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.deviceId}</span>
+                    <span className="copybtn" onClick={() => copyDevice(u.deviceId)} title="Copy device ID" style={{ color: '#5A6B84', cursor: 'pointer', flex: 'none', display: 'flex' }}><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.4}><rect x="5" y="5" width="9" height="9" rx="1" /><path d="M3 11V3a1 1 0 0 1 1-1h7" /></svg></span>
+                  </span>
+                  {u.deviceName ? (
+                    <span style={{ fontSize: 10, color: '#5A6B84', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.deviceName}</span>
+                  ) : null}
                 </span>
                 <span className="mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: u.online ? '#3FD07E' : '#94A0B4' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: u.online ? '#3FD07E' : '#64748B', boxShadow: u.online ? '0 0 6px #3FD07E' : 'none' }} />{u.online ? 'ONLINE' : 'OFFLINE'}</span>
                 <span className="mono" style={{ fontSize: 11, color: over1h ? '#FF8F94' : u.online ? '#97A6BC' : '#7C89A1' }}>{timeAgo(u.lastPingAt)}</span>

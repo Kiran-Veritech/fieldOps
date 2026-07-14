@@ -33,6 +33,7 @@ class RegisterRequest(BaseModel):
     fullName: str = Field(min_length=1)
     designation: Designation
     deviceId: str = Field(min_length=1)
+    deviceName: str = Field(default="", max_length=200)
     appVersion: str = "1.0.0"
     initialLocation: LocationIn
     # Employees register from the app; a password lets them (and admins) use
@@ -43,6 +44,9 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     workEmail: EmailStr
     password: str
+    # Field app refreshes device binding on every login; admin web may omit.
+    deviceId: str | None = Field(default=None, min_length=1)
+    deviceName: str | None = Field(default=None, max_length=200)
 
 
 class RefreshRequest(BaseModel):
@@ -73,6 +77,7 @@ class UserPublic(BaseModel):
     category: Category
     role: Role
     deviceId: str
+    deviceName: str = ""
     appVersion: str
     status: UserStatus
     lastPingAt: datetime | None = None
@@ -91,7 +96,8 @@ class UserPublic(BaseModel):
             designation=doc["designation"],
             category=doc["category"],
             role=doc["role"],
-            deviceId=doc["deviceId"],
+            deviceId=doc.get("deviceId") or "",
+            deviceName=doc.get("deviceName") or "",
             appVersion=doc["appVersion"],
             status=doc["status"],
             lastPingAt=doc.get("lastPingAt"),

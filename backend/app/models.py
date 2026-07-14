@@ -197,6 +197,7 @@ class User(MongoModel):
     role: Role = Role.EMPLOYEE
     passwordHash: str | None = None
     deviceId: str
+    deviceName: str = ""
     appVersion: str
     initialLocation: InitialLocation
     lastPingAt: datetime | None = None

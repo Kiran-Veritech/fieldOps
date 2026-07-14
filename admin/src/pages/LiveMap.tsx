@@ -20,6 +20,7 @@ type User = {
   designation: string
   category: CategoryKey
   deviceId: string
+  deviceName?: string
   status: string
   lastPingAt: string | null
   lastLocation: Geo | null
@@ -30,7 +31,7 @@ type User = {
 type Project = { _id: string; code: string; name: string; memberIds: string[] }
 type Detail = {
   user: User
-  registration: { deviceId: string; initialLocation: Geo | null; createdAt: string | null }
+  registration: { deviceId: string; deviceName?: string; initialLocation: Geo | null; createdAt: string | null }
   locationHistory: { lat: number; lng: number; at: string }[]
 }
 
@@ -552,6 +553,7 @@ function DetailDrawer({ user, detail, project, onClose }: { user: User; detail: 
         </div>
 
         <div style={{ border: '1px solid #1E2A3D', borderRadius: 2, marginBottom: 16 }}>
+          <DrawerRow label="DEVICE" value={user.deviceName || '—'} />
           <DrawerRow label="DEVICE ID" value={user.deviceId} valueColor="#3DD5C6" />
           <DrawerRow label="COORDINATES" value={coord(user.lastLocation)} />
           <DrawerRow label="FIRST SEEN" value={firstSeen ? new Date(firstSeen).toISOString().slice(0, 16).replace('T', ' ') : '—'} />

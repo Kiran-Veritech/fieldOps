@@ -58,6 +58,7 @@ async def get_user_detail(user_id: str, admin: dict = Depends(require_admin)) ->
         "user": UserPublic.from_doc(user),
         "registration": {
             "deviceId": user.get("deviceId"),
+            "deviceName": user.get("deviceName") or "",
             "appVersion": user.get("appVersion"),
             "initialLocation": user.get("initialLocation"),
             "createdAt": user.get("createdAt"),

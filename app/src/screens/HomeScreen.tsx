@@ -25,7 +25,7 @@ function pickUpNext(tasks: Task[]): Task | null {
 export default function HomeScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<AppTabParams>>()
   const { me, tasks, projectName, loaded } = useMyWork()
-  const { sharing, setSharing, lastPingAt, lastLocation } = usePresence()
+  const { sharing, setSharing, lastPingAt, lastLocation, hasPermission, enableSharing } = usePresence()
   const [, setTick] = useState(0)
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function HomeScreen() {
   }, [])
 
   const catColor = designationColor(me?.designation)
-  const live = sharing && lastPingAt !== null && Date.now() - lastPingAt < 60_000
+  const live = sharing && hasPermission && lastPingAt !== null && Date.now() - lastPingAt < 60_000
   const coords = lastLocation ?? me?.lastLocation ?? me?.initialLocation
   const pingAgo = lastPingAt ? timeAgo(new Date(lastPingAt).toISOString()).toUpperCase() : '—'
 
@@ -78,28 +78,39 @@ export default function HomeScreen() {
         <View style={styles.shareCard}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <Mono style={{ fontSize: 10, letterSpacing: 1, color: C.textFaint }}>LOCATION SHARING</Mono>
-            <Mono style={{ fontSize: 10, color: sharing ? C.tealBright : C.textFaint }}>
-              {sharing ? 'LIVE' : 'PAUSED'}
+            <Mono style={{ fontSize: 10, color: sharing && hasPermission ? C.tealBright : C.textFaint }}>
+              {sharing && hasPermission ? 'LIVE' : !hasPermission ? 'NO GPS' : 'PAUSED'}
             </Mono>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
             <View style={styles.radar}>
-              {sharing && <View style={styles.radarRing} />}
+              {sharing && hasPermission && <View style={styles.radarRing} />}
               <View
                 style={[
                   styles.radarDot,
-                  { backgroundColor: sharing ? C.teal : C.grey, shadowColor: sharing ? C.teal : 'transparent' },
+                  {
+                    backgroundColor: sharing && hasPermission ? C.teal : C.grey,
+                    shadowColor: sharing && hasPermission ? C.teal : 'transparent',
+                  },
                 ]}
               />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 15, fontWeight: '600', color: C.text }}>
-                {sharing ? 'Sharing every 10s' : 'Sharing paused'}
+                {!hasPermission
+                  ? 'Location permission needed'
+                  : sharing
+                    ? 'Sharing every 10s'
+                    : 'Sharing paused'}
               </Text>
-              <Mono style={{ fontSize: 11, color: sharing ? '#5BC7BB' : C.textFaint, marginTop: 4 }}>
-                {sharing ? `LAST PING ${pingAgo}` : 'NO PINGS TRANSMITTING'}
+              <Mono style={{ fontSize: 11, color: sharing && hasPermission ? '#5BC7BB' : C.textFaint, marginTop: 4 }}>
+                {!hasPermission
+                  ? 'TAP ENABLE TO ALLOW GPS'
+                  : sharing
+                    ? `LAST PING ${pingAgo}`
+                    : 'NO PINGS TRANSMITTING'}
               </Mono>
-              {coords && (
+              {coords && hasPermission && (
                 <Mono style={{ fontSize: 11, color: C.textFaint, marginTop: 2 }}>
                   {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
                 </Mono>
@@ -108,8 +119,15 @@ export default function HomeScreen() {
           </View>
           <View style={styles.shareFoot}>
             <Text style={{ fontSize: 11, color: C.textMute, flex: 1 }}>Stops when you close the app</Text>
-            <Pressable onPress={() => setSharing(!sharing)}>
-              <Mono style={{ fontSize: 10, color: C.tealText }}>{sharing ? 'Pause' : 'Resume'}</Mono>
+            <Pressable
+              onPress={() => {
+                if (!hasPermission) void enableSharing()
+                else setSharing(!sharing)
+              }}
+            >
+              <Mono style={{ fontSize: 10, color: C.tealText }}>
+                {!hasPermission ? 'Enable' : sharing ? 'Pause' : 'Resume'}
+              </Mono>
             </Pressable>
           </View>
         </View>

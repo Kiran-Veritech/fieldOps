@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Application from 'expo-application'
 import * as Crypto from 'expo-crypto'
+import * as Device from 'expo-device'
 import { Platform } from 'react-native'
 
 const DEVICE_KEY = 'fon.deviceId'
@@ -33,6 +34,27 @@ export async function getDeviceId(): Promise<string> {
   const id = formatId(raw)
   await AsyncStorage.setItem(DEVICE_KEY, id)
   return id
+}
+
+/** Human-readable device label for ops (user name → brand + model → OS). */
+export function getDeviceName(): string {
+  const assigned = Device.deviceName?.trim()
+  if (assigned) return assigned
+
+  const brand = Device.brand?.trim()
+  const model = Device.modelName?.trim()
+  if (brand && model) return `${brand} ${model}`
+  if (model) return model
+  if (brand) return brand
+
+  if (Platform.OS === 'ios') return 'iPhone'
+  if (Platform.OS === 'android') return 'Android device'
+  return 'Unknown device'
+}
+
+export async function getDeviceInfo(): Promise<{ deviceId: string; deviceName: string }> {
+  const [deviceId, deviceName] = await Promise.all([getDeviceId(), Promise.resolve(getDeviceName())])
+  return { deviceId, deviceName }
 }
 
 export const APP_VERSION = Application.nativeApplicationVersion ?? '1.0.0'

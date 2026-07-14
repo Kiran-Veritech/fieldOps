@@ -4,7 +4,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { PrimaryButton } from '../components/ui'
 import { useAuth } from '../auth/AuthContext'
-import { APP_VERSION, getDeviceId } from '../lib/device'
+import { APP_VERSION, getDeviceInfo } from '../lib/device'
 import { ApiError, register } from '../lib/api'
 import { C, mono, RADIUS } from '../theme'
 import type { AuthScreenProps } from '../navigation/types'
@@ -19,6 +19,7 @@ export default function CapturingScreen({ navigation, route }: AuthScreenProps<'
   const { setMe } = useAuth()
   const { email, fullName, designation } = route.params
   const [deviceId, setDeviceId] = useState('…')
+  const [deviceName, setDeviceName] = useState('…')
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const started = useRef(false)
@@ -28,12 +29,16 @@ export default function CapturingScreen({ navigation, route }: AuthScreenProps<'
     started.current = true
 
     ;(async () => {
-      const dev = await getDeviceId()
+      const { deviceId: dev, deviceName: name } = await getDeviceInfo()
       setDeviceId(dev)
+      setDeviceName(name)
 
       let loc = FALLBACK
       try {
-        const { status } = await Location.getForegroundPermissionsAsync()
+        let { status } = await Location.getForegroundPermissionsAsync()
+        if (status !== 'granted') {
+          ;({ status } = await Location.requestForegroundPermissionsAsync())
+        }
         if (status === 'granted') {
           const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
           loc = { lat: pos.coords.latitude, lng: pos.coords.longitude }
@@ -51,6 +56,7 @@ export default function CapturingScreen({ navigation, route }: AuthScreenProps<'
           fullName,
           designation,
           deviceId: dev,
+          deviceName: name,
           appVersion: APP_VERSION,
           initialLocation: loc,
         })
@@ -64,7 +70,7 @@ export default function CapturingScreen({ navigation, route }: AuthScreenProps<'
   }, [email, fullName, designation, setMe])
 
   const steps: Step[] = [
-    { done: deviceId !== '…', label: 'Device registered', value: deviceId },
+    { done: deviceId !== '…', label: 'Device registered', value: `${deviceName} · ${deviceId}` },
     {
       done: !!coords,
       label: 'Initial location captured',
