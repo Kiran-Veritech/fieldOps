@@ -1,0 +1,12 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: fieldops-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - fieldops_mongo_data:/data/db
+
+volumes:
+  fieldops_mongo_data:

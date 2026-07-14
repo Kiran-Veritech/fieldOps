@@ -1,0 +1,35 @@
+# --- Local only / not required for the product ---
+design-reference/
+BUILD_PROMPT.md
+support.js
+deck-stage.js
+android-frame.jsx
+
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+backend/.env
+backend/uploads/
+
+# Node
+node_modules/
+admin/dist/
+admin/.env
+app/.expo/
+app/dist/
+app/web-build/
+
+# Env / secrets
+.env
+.env.local
+**/.env
+
+# OS / editor / agent
+.DS_Store
+*.log
+.claude/
+.cursor/
+
+# Nested git (Expo scaffold) — monorepo uses root .git only
+app/.git/

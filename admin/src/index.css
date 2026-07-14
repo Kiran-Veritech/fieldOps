@@ -1,0 +1,229 @@
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+/* FieldOps Nexus — global defaults, matched to design-reference.
+   Near-black navy command-centre surface, navy-100 body text,
+   IBM Plex Sans UI type, 2px sharp corners, 1px #1E2A3D hairlines. */
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  html {
+    font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  }
+
+  body {
+    margin: 0;
+    background-color: #04060b; /* navy-950 */
+    color: #c7d2e1; /* navy-100 */
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* Restore a sensible default border: 1px hairline in navy-600 so a bare
+     `border` utility reads as a hairline panel divider, not currentColor. */
+  *,
+  ::before,
+  ::after {
+    border-color: #1e2a3d;
+  }
+
+  code,
+  kbd,
+  samp,
+  pre {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  }
+}
+
+/* --- Design-reference chrome helpers (verbatim from the bundle) --- */
+.mono {
+  font-family: "IBM Plex Mono", monospace;
+}
+a {
+  color: #3dd5c6;
+}
+a:hover {
+  color: #16c0ae;
+}
+@keyframes fon-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes fon-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+.navitem:hover > div {
+  background: #0e1626 !important;
+}
+.navitem:hover .navlabel {
+  color: #c7d2e1 !important;
+}
+.rowh:hover {
+  background: #0e1626 !important;
+}
+.urow:hover {
+  background: #0e1626 !important;
+}
+.sorth {
+  cursor: pointer;
+}
+.sorth:hover {
+  color: #c7d2e1 !important;
+}
+.kbtn:hover {
+  background: #152134 !important;
+  color: #c7d2e1 !important;
+}
+.copybtn:hover {
+  color: #3dd5c6 !important;
+}
+@keyframes fon-flash {
+  0% {
+    background: rgba(22, 192, 174, 0.14);
+  }
+  100% {
+    background: transparent;
+  }
+}
+@keyframes fon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes fon-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+@keyframes fon-shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: 200px 0;
+  }
+}
+
+/* Projects cards + AI task board / review helpers */
+.pcard {
+  cursor: pointer;
+  transition:
+    border-color 0.12s,
+    background 0.12s;
+}
+.pcard:hover {
+  border-color: #2a3a52 !important;
+  background: #0e1626 !important;
+}
+.aibtn:hover {
+  background: #3dd5c6 !important;
+}
+.skel {
+  background: linear-gradient(90deg, #131c2e 25%, #1b2740 50%, #131c2e 75%);
+  background-size: 400px 100%;
+  animation: fon-shimmer 1.3s infinite;
+}
+.edit {
+  font-family: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  outline: none;
+  width: 100%;
+  padding: 2px 5px;
+  margin-left: -5px;
+}
+.edit:hover {
+  border-color: #1e2a3d;
+  background: #0a101e;
+}
+.edit:focus {
+  border-color: #16c0ae;
+  background: #0a101e;
+}
+.colscroll::-webkit-scrollbar {
+  width: 6px;
+}
+.colscroll::-webkit-scrollbar-thumb {
+  background: #1e2a3d;
+  border-radius: 3px;
+}
+
+/* Assets queue + audit rows + login/decision buttons */
+.qrow:hover {
+  background: #0e1626 !important;
+}
+.arow:hover {
+  background: #0e1626 !important;
+}
+.apprbtn:hover {
+  background: #2ee06d !important;
+}
+.rejbtn:hover {
+  background: rgba(240, 68, 56, 0.12) !important;
+}
+.lbtn:hover {
+  background: #3dd5c6 !important;
+}
+.noteta {
+  font-family: inherit;
+  resize: none;
+  width: 100%;
+  outline: none;
+}
+.noteta::placeholder {
+  color: #3c4e6a;
+}
+.lin:focus {
+  border-color: #16c0ae !important;
+  background: #0a101e !important;
+}
+@keyframes fon-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-4px);
+  }
+  40%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+.feedscroll::-webkit-scrollbar,
+.nascroll::-webkit-scrollbar,
+.scroll::-webkit-scrollbar {
+  width: 7px;
+}
+.feedscroll::-webkit-scrollbar-thumb,
+.nascroll::-webkit-scrollbar-thumb,
+.scroll::-webkit-scrollbar-thumb {
+  background: #1e2a3d;
+  border-radius: 3px;
+}

@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "FieldOps Nexus",
+    "slug": "app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#070C16",
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "FieldOps Nexus shares your location with operations every 10 seconds while the app is open so your team can coordinate the field. Sharing stops the moment you close the app.",
+        "NSCameraUsageDescription": "FieldOps Nexus uses the camera to photograph assets you enlist for approval."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "CAMERA"]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "FieldOps Nexus shares your location with operations every 10 seconds while the app is open."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "FieldOps Nexus uses the camera to photograph assets you enlist for approval."
+        }
+      ]
+    ]
+  }
+}
