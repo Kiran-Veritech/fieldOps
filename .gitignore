@@ -17,6 +17,7 @@ node_modules/
 admin/dist/
 admin/.env
 app/.expo/
+app/.expo-go/
 app/dist/
 app/web-build/
 
