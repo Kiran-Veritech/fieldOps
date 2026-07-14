@@ -94,7 +94,7 @@ Optional **local** Mongo instead of Atlas: `docker compose up -d`, then set
 
 | Role      | Email                      | Password      |
 | --------- | -------------------------- | ------------- |
-| Admin     | `tara.singh@fieldops.io`   | `FieldOps!23` |
+| Admin     | `admin@fieldops.io`        | `Password123!` |
 | Employees | any seeded `@fieldops.io` user | `FieldOps!23` |
 
 Approved registration domain (configurable): **`fieldops.io`** (`APPROVED_EMAIL_DOMAINS` in `backend/.env`).

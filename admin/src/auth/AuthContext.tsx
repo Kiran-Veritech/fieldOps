@@ -4,8 +4,8 @@ import { api, clearTokens, getToken, login as apiLogin } from '../lib/api'
 // Until the dedicated Login screen (Admin Utility Screens) is built, the admin
 // app bootstraps a session with the seeded demo admin so the authenticated
 // screens work. Swap this for the real login form later.
-const DEMO_EMAIL = import.meta.env.VITE_DEMO_EMAIL ?? 'tara.singh@fieldops.io'
-const DEMO_PASSWORD = import.meta.env.VITE_DEMO_PASSWORD ?? 'FieldOps!23'
+const DEMO_EMAIL = import.meta.env.VITE_DEMO_EMAIL ?? 'admin@fieldops.io'
+const DEMO_PASSWORD = import.meta.env.VITE_DEMO_PASSWORD ?? 'Password123!'
 
 type Admin = { fullName?: string; workEmail?: string } | null
 

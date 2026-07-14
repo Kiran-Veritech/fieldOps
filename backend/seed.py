@@ -47,8 +47,12 @@ from app.security import hash_password
 random.seed(42)
 
 APPROVED_DOMAIN = "fieldops.io"
-# Every seeded user shares this password so login is testable out of the box.
+# Every seeded employee shares this password so field login is testable.
 DEMO_PASSWORD = "FieldOps!23"
+# Control-room admin (auto-login in the admin app).
+ADMIN_EMAIL = "admin@fieldops.io"
+ADMIN_PASSWORD = "Password123!"
+ADMIN_NAME = "Ops Admin"
 CITY = (28.4595, 77.0266)  # Gurugram / Delhi NCR command area (matches the design)
 # Bounding box the Live Map projects into; keep in sync with admin map projection.
 NCR_BOUNDS = {"minLat": 28.40, "maxLat": 28.72, "minLng": 76.98, "maxLng": 77.34}
@@ -87,7 +91,7 @@ PEOPLE = [
     ("Sam Okafor", D.BUSINESS_ANALYST, Role.EMPLOYEE),
     ("Maya Iyer", D.DEVOPS_ENGINEER, Role.EMPLOYEE),
     ("Jonas Weber", D.HR_OPERATIONS, Role.EMPLOYEE),
-    ("Tara Singh", D.ADMIN, Role.ADMIN),
+    (ADMIN_NAME, D.ADMIN, Role.ADMIN),
     ("Victor Lopez", D.DEVOPS_ENGINEER, Role.EMPLOYEE),
     ("Isabel Romano", D.SALES_ACCOUNT_MANAGER, Role.EMPLOYEE),
     ("Grace Chen", D.LEADERSHIP, Role.EMPLOYEE),
@@ -178,7 +182,8 @@ async def seed_users() -> tuple[list[dict], list[dict]]:
     user_docs: list[dict] = []
     ping_docs: list[dict] = []
     shared_device = "FON-DEVICE-SHARED-01"
-    demo_hash = hash_password(DEMO_PASSWORD)  # one hash, reused across demo users
+    demo_hash = hash_password(DEMO_PASSWORD)  # one hash, reused across demo employees
+    admin_hash = hash_password(ADMIN_PASSWORD)
 
     for idx, (name, designation, role) in enumerate(PEOPLE):
         created = now() - timedelta(days=random.randint(20, 120))
@@ -204,13 +209,14 @@ async def seed_users() -> tuple[list[dict], list[dict]]:
                 ).model_dump()
             )
 
+        is_admin = role == Role.ADMIN
         user = User(
             fullName=name,
-            workEmail=email_for(name),
+            workEmail=ADMIN_EMAIL if is_admin else email_for(name),
             designation=designation,
             category=category_for(designation),
             role=role,
-            passwordHash=demo_hash,
+            passwordHash=admin_hash if is_admin else demo_hash,
             deviceId=device_id,
             appVersion=random.choice(["1.0.0", "1.0.1", "1.1.0"]),
             initialLocation=InitialLocation(lat=loc.lat, lng=loc.lng, capturedAt=created),
@@ -442,7 +448,8 @@ async def main() -> None:
     print(f"  assets       : {len(assets)}  (5 pending / 5 approved / 4 rejected)")
     print(f"  auditLog     : {audit_count}")
     print(f"\n  admin login user: {admin['workEmail']}")
-    print(f"  demo password   : {DEMO_PASSWORD}  (all seeded users)")
+    print(f"  admin password  : {ADMIN_PASSWORD}")
+    print(f"  employee password: {DEMO_PASSWORD}  (all seeded employees)")
 
     await close_mongo_connection()
 
