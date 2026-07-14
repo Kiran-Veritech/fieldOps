@@ -26,7 +26,9 @@ Demo data lives on **MongoDB Atlas** (database `field-ops-ai`). After you clone 
 ## What you get
 
 ### Admin panel (web)
-Dashboard · Live Map · Users · Projects (+ AI task generation review) · Tasks · Assets approval queue · Audit Log · Settings.
+Dashboard · Live Map (real MapLibre dark basemap + operator lat/lng) · Users · Projects (+ AI task generation review) · Tasks · Assets approval queue · Audit Log · Settings.
+
+Live Map uses free CARTO Dark Matter tiles by default (**no Mapbox key**). Optional override: `VITE_MAP_STYLE_URL` in `admin/.env` (see `admin/.env.example`).
 
 ### Field app (mobile)
 Onboarding → register (domain allow-list) → location consent → capturing → **Home** (presence + task summary) · **Tasks** (list + detail + blocked reason) · **Assets** (list + enlist + photo) · **Profile** (sharing toggle + logout).
@@ -75,10 +77,12 @@ cd app && nvm use && npm install && npx expo start
 # press i / a / w, or Expo Go (SDK 54 — matches Play Store / App Store)
 ```
 
-Optional presence simulator (keeps Live Map “online” without the phone):
+Optional presence simulator (Live Map demo — random online/offline + drifting pins):
 
 ```bash
 cd backend && ./.venv/bin/python simulate_presence.py
+# defaults: ~55% online, 12s cycle, ~22% churn each cycle
+# ./.venv/bin/python simulate_presence.py --ratio 0.7 --interval 10 --churn 0.3
 ```
 
 Optional **local** Mongo instead of Atlas: `docker compose up -d`, then set
@@ -143,7 +147,7 @@ Admin and field UIs follow a locked design system (navy command workspace, IBM P
 # Reset SHARED Atlas demo data (destructive — affects all teammates)
 cd backend && ./.venv/bin/python seed.py
 
-# Keep a rotating subset of users “online” for Live Map demos
+# Keep a rotating subset of users “online” for Live Map demos (random join/leave)
 cd backend && ./.venv/bin/python simulate_presence.py
 
 # Admin production build

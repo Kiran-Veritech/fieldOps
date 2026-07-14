@@ -7,11 +7,11 @@ Run it once after MongoDB is up:
     ./.venv/bin/python seed.py
 
 It CLEARS the FieldOps collections first, then inserts:
-  - ~20 users across all five designation categories (mixed online/offline)
+  - ~40 users across all five designation categories (mixed online/offline)
   - pings backing each user's presence
-  - 4 projects (planning / active / at-risk / completed)
-  - ~12 tasks per active project across all statuses (blocked ones carry a reason)
-  - 8 assets (pending / approved / rejected-with-note)
+  - 6 projects (planning / active / at-risk / completed)
+  - ~14 tasks per active/at-risk project across all statuses (blocked ones carry a reason)
+  - 14 assets (pending / approved / rejected-with-note)
   - a device-reuse flag + an audit-log trail
 """
 
@@ -70,7 +70,7 @@ def email_for(name: str) -> str:
     return name.lower().replace(" ", ".") + "@" + APPROVED_DOMAIN
 
 
-# (full name, designation, role) — 20 people, all five categories represented.
+# (full name, designation, role) — ~40 people across all five categories.
 PEOPLE = [
     ("Ava Mitchell", D.TECH_LEAD, Role.EMPLOYEE),
     ("Noah Bennett", D.SENIOR_SOFTWARE_ENGINEER, Role.EMPLOYEE),
@@ -92,6 +92,27 @@ PEOPLE = [
     ("Isabel Romano", D.SALES_ACCOUNT_MANAGER, Role.EMPLOYEE),
     ("Grace Chen", D.LEADERSHIP, Role.EMPLOYEE),
     ("Daniel Frost", D.SALES_ACCOUNT_MANAGER, Role.EMPLOYEE),
+    # Extra demo roster
+    ("Arjun Mehta", D.BACKEND_DEVELOPER, Role.EMPLOYEE),
+    ("Nina Kapoor", D.FRONTEND_DEVELOPER, Role.EMPLOYEE),
+    ("Leo Hartmann", D.MOBILE_APP_DEVELOPER, Role.EMPLOYEE),
+    ("Zoe Brooks", D.SOFTWARE_ENGINEER, Role.EMPLOYEE),
+    ("Kenji Sato", D.SENIOR_SOFTWARE_ENGINEER, Role.EMPLOYEE),
+    ("Amira Hassan", D.TECH_LEAD, Role.EMPLOYEE),
+    ("Felix Novak", D.QA_ENGINEER, Role.EMPLOYEE),
+    ("Rita Gomes", D.SENIOR_QA_ENGINEER, Role.EMPLOYEE),
+    ("Owen Blake", D.UI_UX_DESIGNER, Role.EMPLOYEE),
+    ("Yara Hassan", D.PROJECT_MANAGER, Role.EMPLOYEE),
+    ("Tomás Silva", D.DELIVERY_MANAGER, Role.EMPLOYEE),
+    ("Elena Petrova", D.PRODUCT_MANAGER, Role.EMPLOYEE),
+    ("Chris Dalton", D.BUSINESS_ANALYST, Role.EMPLOYEE),
+    ("Anika Bose", D.DEVOPS_ENGINEER, Role.EMPLOYEE),
+    ("Hugo Moreau", D.HR_OPERATIONS, Role.EMPLOYEE),
+    ("Sara Lindqvist", D.SALES_ACCOUNT_MANAGER, Role.EMPLOYEE),
+    ("Jordan Lee", D.LEADERSHIP, Role.EMPLOYEE),
+    ("Mei Lin", D.FRONTEND_DEVELOPER, Role.EMPLOYEE),
+    ("Omar Farouk", D.BACKEND_DEVELOPER, Role.EMPLOYEE),
+    ("Kate Brennan", D.SOFTWARE_ENGINEER, Role.EMPLOYEE),
 ]
 
 TASK_TITLES = [
@@ -109,6 +130,12 @@ TASK_TITLES = [
     "Accessibility & keyboard pass",
     "Performance profiling",
     "Security review of endpoints",
+    "Field radio calibration checklist",
+    "Validate GPS accuracy on-device",
+    "Prepare ops handoff briefing",
+    "Asset serial reconciliation",
+    "Night-shift coverage plan",
+    "Incident retro write-up",
 ]
 
 BLOCKED_REASONS = [
@@ -116,6 +143,8 @@ BLOCKED_REASONS = [
     "Blocked by upstream API rate limits",
     "Needs design sign-off before proceeding",
     "Dependency package has a breaking change",
+    "Vendor site access not approved yet",
+    "Waiting for QA environment restore",
 ]
 
 ASSET_SPECS = [
@@ -127,6 +156,12 @@ ASSET_SPECS = [
     ("Logitech MX Master 3S", "Peripheral"),
     ("GoPro Hero 12", "Camera"),
     ("Bosch GLM 165 Laser", "Instrument"),
+    ("Samsung Galaxy Tab S9", "Tablet"),
+    ("Motorola TLK 100 Radio", "Radio"),
+    ("Trimble R12i Rover", "Instrument"),
+    ("Lenovo ThinkPad X1", "Laptop"),
+    ("Pixel 8 Pro", "Phone"),
+    ("Hollyland Mars 400S", "Accessory"),
 ]
 
 
@@ -212,12 +247,15 @@ async def seed_projects(users: list[dict]) -> list[dict]:
         ("PRJ-0488", "Harbor Telemetry", ProjectStatus.AT_RISK, Priority.HIGH),
         ("PRJ-0501", "Northwind Migration", ProjectStatus.PLANNING, Priority.MEDIUM),
         ("PRJ-0455", "Beacon Field Audit", ProjectStatus.COMPLETED, Priority.LOW),
+        ("PRJ-0512", "Cyan Corridor Survey", ProjectStatus.ACTIVE, Priority.MEDIUM),
+        ("PRJ-0520", "Edge Relay Upgrade", ProjectStatus.AT_RISK, Priority.HIGH),
     ]
 
     project_docs: list[dict] = []
     for code, name, status, priority in specs:
         start = now() - timedelta(days=random.randint(15, 90))
-        members = random.sample(member_pool, k=random.randint(5, 8))
+        k = min(len(member_pool), random.randint(8, 14))
+        members = random.sample(member_pool, k=k)
         project = Project(
             code=code,
             name=name,
@@ -243,8 +281,8 @@ async def seed_tasks(projects: list[dict]) -> list[dict]:
     task_docs: list[dict] = []
     for project in active:
         members = project["memberIds"] or [None]
-        titles = random.sample(TASK_TITLES, k=min(12, len(TASK_TITLES)))
-        while len(titles) < 12:
+        titles = random.sample(TASK_TITLES, k=min(14, len(TASK_TITLES)))
+        while len(titles) < 14:
             titles.append(random.choice(TASK_TITLES))
 
         for i, title in enumerate(titles):
@@ -291,13 +329,15 @@ async def seed_tasks(projects: list[dict]) -> list[dict]:
 async def seed_assets(users: list[dict], admin: dict) -> list[dict]:
     db = get_db()
     owners = [u["_id"] for u in users if u["role"] == "employee"]
-    # 3 pending, 3 approved, 2 rejected (rejected must carry an admin note).
+    # 5 pending, 5 approved, 4 rejected (rejected must carry an admin note).
     plan = (
-        [(AssetStatus.PENDING, None)] * 3
-        + [(AssetStatus.APPROVED, "Verified against procurement records.")] * 3
+        [(AssetStatus.PENDING, None)] * 5
+        + [(AssetStatus.APPROVED, "Verified against procurement records.")] * 5
         + [
             (AssetStatus.REJECTED, "Serial number does not match the asset registry."),
             (AssetStatus.REJECTED, "Photo is unreadable — please re-submit a clear image."),
+            (AssetStatus.REJECTED, "Asset already assigned to another operator."),
+            (AssetStatus.REJECTED, "Missing purchase order reference."),
         ]
     )
 
@@ -350,7 +390,7 @@ async def seed_audit(
         )
     active = [p for p in projects if p["status"] in ("ACTIVE", "AT_RISK")]
     for p in active:
-        entries.append(entry(AuditAction.GENERATE, "project", p["_id"], {"generated": 12}))
+        entries.append(entry(AuditAction.GENERATE, "project", p["_id"], {"generated": 14}))
     for a in assets:
         if a["status"] == "APPROVED":
             entries.append(entry(AuditAction.APPROVE, "asset", a["_id"], {"name": a["name"]}))
@@ -398,8 +438,8 @@ async def main() -> None:
     print(f"  users        : {len(users)}  ({online} online / {len(users) - online} offline)")
     print(f"  pings        : {len(pings)}")
     print(f"  projects     : {len(projects)}  ({len(active_projects)} active/at-risk)")
-    print(f"  tasks        : {len(tasks)}  (~12 per active project, all statuses)")
-    print(f"  assets       : {len(assets)}  (3 pending / 3 approved / 2 rejected)")
+    print(f"  tasks        : {len(tasks)}  (~14 per active/at-risk project, all statuses)")
+    print(f"  assets       : {len(assets)}  (5 pending / 5 approved / 4 rejected)")
     print(f"  auditLog     : {audit_count}")
     print(f"\n  admin login user: {admin['workEmail']}")
     print(f"  demo password   : {DEMO_PASSWORD}  (all seeded users)")

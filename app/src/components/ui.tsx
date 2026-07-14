@@ -9,6 +9,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { C, mono, RADIUS } from '../theme'
+import { OnlinePulseDot } from './PulsatingPing'
 
 export function Mono({ children, style }: { children: ReactNode; style?: TextStyle | TextStyle[] }) {
   return <Text style={[{ fontFamily: mono, color: C.textDim }, style]}>{children}</Text>
@@ -156,20 +157,19 @@ export function Avatar({
       <Text style={{ fontFamily: mono, fontSize: size * 0.34, fontWeight: '700', color: dim ? C.textFaint : C.blueText }}>
         {text}
       </Text>
-      {online && (
+      {online != null && (
         <View
           style={{
             position: 'absolute',
-            bottom: -4,
-            right: -4,
-            width: 15,
-            height: 15,
-            borderRadius: 8,
-            backgroundColor: C.green,
-            borderWidth: 2,
-            borderColor: C.bg,
+            bottom: -5,
+            right: -5,
+            backgroundColor: C.bg,
+            borderRadius: 20,
+            padding: 2,
           }}
-        />
+        >
+          <OnlinePulseDot online={!!online} size={Math.max(7, size * 0.18)} />
+        </View>
       )}
     </View>
   )

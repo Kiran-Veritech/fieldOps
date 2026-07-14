@@ -34,21 +34,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     async function bootstrap() {
       try {
+        // Prefer a fresh demo login when the stored session can't talk to the API
+        // (expired tokens, or reseed that revoked all user ids). Cap waits so a
+        // hung backend can't leave the UI on CONNECTING forever.
+        const withTimeout = <T,>(p: Promise<T>, ms = 12_000) =>
+          Promise.race([
+            p,
+            new Promise<T>((_, rej) => setTimeout(() => rej(new Error('Backend timed out')), ms)),
+          ])
+
         if (getToken()) {
-          // Validate the stored session (the client auto-refreshes an expired
-          // access token). If it can't be revived, fall back to a fresh login
-          // so we never get stuck with a dead token.
           try {
-            const me = await api<Admin>('/auth/whoami')
+            const me = await withTimeout(api<Admin>('/auth/whoami'))
             if (!cancelled) setAdmin(me)
           } catch {
             clearTokens()
-            await doLogin(DEMO_EMAIL, DEMO_PASSWORD)
+            await withTimeout(doLogin(DEMO_EMAIL, DEMO_PASSWORD))
           }
         } else {
-          await doLogin(DEMO_EMAIL, DEMO_PASSWORD)
+          await withTimeout(doLogin(DEMO_EMAIL, DEMO_PASSWORD))
         }
       } catch (e) {
+        clearTokens()
         if (!cancelled) setError(e instanceof Error ? e.message : 'Auth failed')
       } finally {
         if (!cancelled) setReady(true)

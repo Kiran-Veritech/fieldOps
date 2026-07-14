@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { PrimaryButton } from '../components/ui'
 import { usePresence } from '../location/PresenceProvider'
@@ -20,8 +20,26 @@ export default function ConsentScreen({ navigation, route }: AuthScreenProps<'Co
   const { requestPermission } = usePresence()
 
   const proceed = async () => {
-    await requestPermission()
+    const ok = await requestPermission()
+    if (!ok) {
+      Alert.alert(
+        'Location required',
+        'FieldOps needs location while you use the app so operations can see you on the live map.',
+      )
+      return
+    }
     navigation.navigate('Capturing', route.params)
+  }
+
+  const onNotNow = () => {
+    Alert.alert(
+      'Location required to continue',
+      'Without GPS you cannot register or appear online. Allow location to join your team.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Allow location', onPress: () => void proceed() },
+      ],
+    )
   }
 
   return (
@@ -32,7 +50,7 @@ export default function ConsentScreen({ navigation, route }: AuthScreenProps<'Co
             <Text style={{ color: C.teal, fontSize: 24 }}>◎</Text>
           </View>
           <Text style={styles.title}>Share your location</Text>
-          <Text style={styles.sub}>Here's exactly what FieldOps Nexus collects — and what it never does.</Text>
+          <Text style={styles.sub}>Here&apos;s exactly what FieldOps Nexus collects — and what it never does.</Text>
         </View>
 
         <View style={styles.card}>
@@ -49,8 +67,8 @@ export default function ConsentScreen({ navigation, route }: AuthScreenProps<'Co
       </View>
 
       <View style={styles.footer}>
-        <PrimaryButton label="Allow while using the app" onPress={proceed} />
-        <Pressable style={{ paddingVertical: 13, alignItems: 'center' }} onPress={() => navigation.navigate('Capturing', route.params)}>
+        <PrimaryButton label="Allow while using the app" onPress={() => void proceed()} />
+        <Pressable style={{ paddingVertical: 13, alignItems: 'center' }} onPress={onNotNow}>
           <Text style={{ fontSize: 13, fontWeight: '600', color: C.textDim }}>Not now</Text>
         </Pressable>
       </View>

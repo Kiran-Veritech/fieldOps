@@ -15,18 +15,42 @@ import { api } from '../lib/api'
 import type { GeoPoint } from '../types'
 
 const PING_INTERVAL_MS = 10_000
+const ONLINE_WINDOW_MS = 60_000
 
 type PresenceState = {
+  /** Whether the user has opted to transmit pings (foreground only). */
   sharing: boolean
   setSharing: (on: boolean) => void
+  /** Client clock of last successful /pings POST. */
   lastPingAt: number | null
   lastLocation: GeoPoint | null
   hasPermission: boolean
+  /** True when sharing and a successful ping landed within 60s. */
+  online: boolean
   requestPermission: () => Promise<boolean>
-  pingNow: () => Promise<void>
+  pingNow: () => Promise<boolean>
 }
 
 const PresenceContext = createContext<PresenceState | null>(null)
+
+async function readGps(): Promise<GeoPoint | null> {
+  try {
+    const last = await Location.getLastKnownPositionAsync()
+    if (last) {
+      return { lat: last.coords.latitude, lng: last.coords.longitude }
+    }
+  } catch {
+    // ignore — try a fresh fix below
+  }
+  try {
+    const pos = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    })
+    return { lat: pos.coords.latitude, lng: pos.coords.longitude }
+  } catch {
+    return null
+  }
+}
 
 export function PresenceProvider({ children }: { children: ReactNode }) {
   const { me } = useAuth()
@@ -34,7 +58,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [lastPingAt, setLastPingAt] = useState<number | null>(null)
   const [lastLocation, setLastLocation] = useState<GeoPoint | null>(null)
   const [hasPermission, setHasPermission] = useState(false)
+  const [, setTick] = useState(0)
   const appActive = useRef(AppState.currentState === 'active')
+  const lastLocationRef = useRef<GeoPoint | null>(null)
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
     const { status } = await Location.requestForegroundPermissionsAsync()
@@ -43,29 +69,71 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     return granted
   }, [])
 
-  const pingNow = useCallback(async (): Promise<void> => {
-    if (!me) return
-    let coords: GeoPoint | null = null
-    try {
-      const pos = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      })
-      coords = { lat: pos.coords.latitude, lng: pos.coords.longitude }
-    } catch {
-      // Fall back to the last known / initial fix so a ping still lands.
-      coords = lastLocation ?? me.lastLocation ?? me.initialLocation ?? null
+  const pingNow = useCallback(async (): Promise<boolean> => {
+    if (!me) return false
+
+    let permission = hasPermission
+    if (!permission) {
+      const { status } = await Location.getForegroundPermissionsAsync()
+      permission = status === 'granted'
+      setHasPermission(permission)
     }
-    if (!coords) return
+    if (!permission) return false
+
+    // Real GPS only — never re-post a fixed mock / seed location.
+    const coords = await readGps()
+    if (!coords) return false
+
     try {
       await api('/pings', { method: 'POST', body: coords })
+      lastLocationRef.current = coords
       setLastLocation(coords)
       setLastPingAt(Date.now())
+      return true
     } catch {
-      // swallow — the sync indicator will read stale until the next tick
+      return false
     }
-  }, [me, lastLocation])
+  }, [me, hasPermission])
 
-  // The ping loop: runs only while signed in, sharing, and app foregrounded.
+  // When a session appears (register / token restore), seed location state and
+  // ensure we have permission so the first ping can land immediately.
+  useEffect(() => {
+    if (!me) {
+      setLastPingAt(null)
+      setLastLocation(null)
+      lastLocationRef.current = null
+      setSharing(true)
+      return
+    }
+
+    if (me.lastLocation) {
+      lastLocationRef.current = me.lastLocation
+      setLastLocation(me.lastLocation)
+    }
+    if (me.lastPingAt) {
+      const ts = new Date(me.lastPingAt).getTime()
+      if (!Number.isNaN(ts)) setLastPingAt(ts)
+    }
+
+    let cancelled = false
+    ;(async () => {
+      const { status } = await Location.getForegroundPermissionsAsync()
+      if (cancelled) return
+      if (status === 'granted') {
+        setHasPermission(true)
+        return
+      }
+      // Returning users: prompt on session restore so login → ping works.
+      const { status: next } = await Location.requestForegroundPermissionsAsync()
+      if (!cancelled) setHasPermission(next === 'granted')
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [me?.id])
+
+  // Ping loop: signed in + sharing + foreground.
   useEffect(() => {
     if (!me || !sharing) return
     let interval: ReturnType<typeof setInterval> | null = null
@@ -86,7 +154,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
       appActive.current = next === 'active'
-      if (next === 'active') start()
+      if (next === 'active') {
+        start()
+      } else {
+        stop()
+      }
     })
 
     if (appActive.current) start()
@@ -97,17 +169,31 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
   }, [me, sharing, pingNow])
 
-  // Check the current permission grant once we have a session.
+  // Refresh "online" derived state every second so the pill flips at 60s.
   useEffect(() => {
-    if (!me) return
-    Location.getForegroundPermissionsAsync()
-      .then(({ status }) => setHasPermission(status === 'granted'))
-      .catch(() => setHasPermission(false))
-  }, [me])
+    if (!me || !sharing) return
+    const id = setInterval(() => setTick((n) => n + 1), 1000)
+    return () => clearInterval(id)
+  }, [me, sharing])
+
+  const online =
+    !!me &&
+    sharing &&
+    lastPingAt !== null &&
+    Date.now() - lastPingAt < ONLINE_WINDOW_MS
 
   const value = useMemo<PresenceState>(
-    () => ({ sharing, setSharing, lastPingAt, lastLocation, hasPermission, requestPermission, pingNow }),
-    [sharing, lastPingAt, lastLocation, hasPermission, requestPermission, pingNow],
+    () => ({
+      sharing,
+      setSharing,
+      lastPingAt,
+      lastLocation,
+      hasPermission,
+      online,
+      requestPermission,
+      pingNow,
+    }),
+    [sharing, lastPingAt, lastLocation, hasPermission, online, requestPermission, pingNow],
   )
 
   return <PresenceContext.Provider value={value}>{children}</PresenceContext.Provider>
