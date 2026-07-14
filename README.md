@@ -6,16 +6,27 @@ Internal workforce visibility & coordination platform. A monorepo with three sur
 
 ```
 FieldOps/
-├── backend/          FastAPI + MongoDB (Motor) — REST API under /api/v1
+├── backend/          FastAPI + MongoDB Atlas (Motor) — REST API under /api/v1
 ├── admin/            React + Vite + TypeScript + Tailwind v4 — ops admin panel
 ├── app/              Expo SDK 54 / React Native — field employee app
 └── docker-compose.yml  Local MongoDB 7
 ```
 
+## Shared cloud database
+
+Demo data lives on **MongoDB Atlas** (database `field-ops-ai`). After you clone and copy
+`backend/.env.example` → `backend/.env`, you already point at the shared cluster —
+**you do not need to seed** to see users, projects, tasks, and assets.
+
+> `seed.py` **clears and rebuilds** the `field-ops-ai` database. Only run it if you
+> intentionally want to reset the shared demo data for everyone.
+
+---
+
 ## What you get
 
 ### Admin panel (web)
-Dashboard · Live Map · Users · Projects (+ AI task generation review) · Tasks · Assets approval queue · Audit Log · Settings. Matches `design-reference/` screens.
+Dashboard · Live Map · Users · Projects (+ AI task generation review) · Tasks · Assets approval queue · Audit Log · Settings.
 
 ### Field app (mobile)
 Onboarding → register (domain allow-list) → location consent → capturing → **Home** (presence + task summary) · **Tasks** (list + detail + blocked reason) · **Assets** (list + enlist + photo) · **Profile** (sharing toggle + logout).
@@ -40,23 +51,19 @@ Onboarding → register (domain allow-list) → location consent → capturing �
 
 - [nvm](https://github.com/nvm-sh/nvm) + Node 22
 - Python 3.12 (`brew install python@3.12`)
-- Docker Desktop (running)
+- Outbound network access to MongoDB Atlas (no local Docker Mongo required)
 
 ---
 
 ## Quick start
 
 ```bash
-# 0) Database
-docker compose up -d
-
 # 1) Backend (port 8000)
 cd backend
-# first time only:
-#   /opt/homebrew/bin/python3.12 -m venv .venv
-#   ./.venv/bin/pip install -r requirements.txt
-#   cp .env.example .env   # if needed
-./.venv/bin/python seed.py
+/opt/homebrew/bin/python3.12 -m venv .venv          # first time
+./.venv/bin/pip install -r requirements.txt         # first time
+cp .env.example .env                                # first time — Atlas URI included
+# Do NOT run seed.py unless you mean to wipe/reset shared demo data
 ./.venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # 2) Admin (port 5173)
@@ -74,13 +81,16 @@ Optional presence simulator (keeps Live Map “online” without the phone):
 cd backend && ./.venv/bin/python simulate_presence.py
 ```
 
+Optional **local** Mongo instead of Atlas: `docker compose up -d`, then set
+`MONGODB_URI=mongodb://localhost:27017` in `backend/.env` and run `seed.py`.
+
 ---
 
 ## Demo credentials
 
-| Role     | Email                    | Password     |
-| -------- | ------------------------ | ------------ |
-| Admin    | `tara.singh@fieldops.io` | `FieldOps!23` |
+| Role      | Email                      | Password      |
+| --------- | -------------------------- | ------------- |
+| Admin     | `tara.singh@fieldops.io`   | `FieldOps!23` |
 | Employees | any seeded `@fieldops.io` user | `FieldOps!23` |
 
 Approved registration domain (configurable): **`fieldops.io`** (`APPROVED_EMAIL_DOMAINS` in `backend/.env`).
@@ -91,13 +101,14 @@ Approved registration domain (configurable): **`fieldops.io`** (`APPROVED_EMAIL_
 
 | App     | File / var | Default |
 | ------- | ---------- | ------- |
-| Backend | `backend/.env` — `MONGODB_URI`, `JWT_SECRET`, `APPROVED_EMAIL_DOMAINS`, `CORS_ORIGINS` | see `.env.example` |
+| Backend | `backend/.env` — copy from `.env.example` | Atlas URI + `MONGODB_DB=field-ops-ai` |
 | Admin   | `VITE_API_URL` | `http://localhost:8000` (client appends `/api/v1`) |
 | Field app | `EXPO_PUBLIC_API_URL` | `http://localhost:8000` (client appends `/api/v1`) |
 
 On a **physical device**, set `EXPO_PUBLIC_API_URL` to your machine’s LAN IP (e.g. `http://192.168.0.217:8000`). Simulator/web can use `localhost`.
 
-API docs: http://localhost:8000/docs · Health: http://localhost:8000/health
+API docs: http://localhost:8000/docs · Health: http://localhost:8000/health  
+(`database` should read `"up"` when Atlas is reachable.)
 
 ---
 
@@ -129,7 +140,7 @@ Admin and field UIs follow a locked design system (navy command workspace, IBM P
 ## Scripts worth knowing
 
 ```bash
-# Reset demo data
+# Reset SHARED Atlas demo data (destructive — affects all teammates)
 cd backend && ./.venv/bin/python seed.py
 
 # Keep a rotating subset of users “online” for Live Map demos
