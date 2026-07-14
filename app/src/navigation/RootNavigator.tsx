@@ -1,9 +1,11 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { DarkTheme, NavigationContainer, type Theme } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
-import { ActivityIndicator, Text, View } from 'react-native'
+import { useEffect, useState } from 'react'
+import { Text, View } from 'react-native'
 import { useAuth } from '../auth/AuthContext'
 import { PresenceProvider } from '../location/PresenceProvider'
+import { BrandSplash } from '../screens/BrandSplash'
 import CapturingScreen from '../screens/CapturingScreen'
 import ConsentScreen from '../screens/ConsentScreen'
 import HomeScreen from '../screens/HomeScreen'
@@ -15,6 +17,9 @@ import { TasksStack } from './TasksStack'
 import type { AuthStackParams } from './types'
 import type { AppTabParams } from './appTypes'
 import { C } from '../theme'
+
+/** Keep the branded splash up long enough for the loading motion to read. */
+const SPLASH_MIN_MS = 1600
 
 const navTheme: Theme = {
   ...DarkTheme,
@@ -111,13 +116,15 @@ function AuthFlow() {
 
 export function RootNavigator() {
   const { ready, me } = useAuth()
+  const [splashDone, setSplashDone] = useState(false)
 
-  if (!ready) {
-    return (
-      <View style={{ flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={C.teal} size="large" />
-      </View>
-    )
+  useEffect(() => {
+    const t = setTimeout(() => setSplashDone(true), SPLASH_MIN_MS)
+    return () => clearTimeout(t)
+  }, [])
+
+  if (!ready || !splashDone) {
+    return <BrandSplash />
   }
 
   return (

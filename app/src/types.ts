@@ -10,6 +10,7 @@ export type Me = {
   category: string
   role: string
   deviceId: string
+  deviceName: string
   appVersion: string
   status: string
   lastPingAt: string | null

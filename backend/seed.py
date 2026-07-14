@@ -218,6 +218,16 @@ async def seed_users() -> tuple[list[dict], list[dict]]:
             role=role,
             passwordHash=admin_hash if is_admin else demo_hash,
             deviceId=device_id,
+            deviceName=random.choice(
+                [
+                    "Pixel 8",
+                    "Galaxy S24",
+                    "iPhone 15",
+                    "OnePlus 12",
+                    "Pixel 7a",
+                    "Galaxy A54",
+                ]
+            ),
             appVersion=random.choice(["1.0.0", "1.0.1", "1.1.0"]),
             initialLocation=InitialLocation(lat=loc.lat, lng=loc.lng, capturedAt=created),
             lastPingAt=last_ping_at,

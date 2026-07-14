@@ -39,7 +39,8 @@ function Toggle({ on, onPress }: { on: boolean; onPress: () => void }) {
 
 export default function ProfileScreen() {
   const { me, signOut } = useAuth()
-  const { sharing, setSharing, lastPingAt, online, hasPermission, requestPermission, pingNow } = usePresence()
+  const { sharing, setSharing, lastPingAt, hasPermission, canAskAgain, enableSharing, openSystemSettings } =
+    usePresence()
   const [confirm, setConfirm] = useState(false)
   const [, setTick] = useState(0)
 
@@ -50,6 +51,7 @@ export default function ProfileScreen() {
   }, [])
 
   const catColor = designationColor(me?.designation)
+  const live = sharing && hasPermission && lastPingAt !== null && Date.now() - lastPingAt < 60_000
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -95,31 +97,36 @@ export default function ProfileScreen() {
                 </Mono>
               </View>
             </View>
-            {hasPermission ? (
-              <Toggle on={sharing} onPress={() => setSharing(!sharing)} />
-            ) : (
-              <Pressable
-                onPress={async () => {
-                  const ok = await requestPermission()
-                  if (ok) {
-                    setSharing(true)
-                    void pingNow()
-                  }
-                }}
-              >
-                <Mono style={{ fontSize: 10, color: C.tealText }}>ALLOW</Mono>
-              </Pressable>
-            )}
+            <Toggle
+              on={sharing && hasPermission}
+              onPress={() => {
+                if (sharing && hasPermission) setSharing(false)
+                else void enableSharing()
+              }}
+            />
           </View>
           <Text style={styles.shareBody}>
-            {sharing
+            {sharing && hasPermission
               ? "You're visible to operations on the live map. Sharing runs only while the app is open and stops the moment you close it — never in the background."
-              : 'Turn sharing back on to appear on the live map. Ops currently cannot see your position.'}
+              : !hasPermission
+                ? 'Location permission is off. Enable it so operations can see you on the live map while the app is open.'
+                : 'Turn sharing back on to appear on the live map. Ops currently cannot see your position.'}
           </Text>
+          {!hasPermission && (
+            <Pressable
+              onPress={() => void (canAskAgain ? enableSharing() : openSystemSettings())}
+              style={{ marginTop: 12 }}
+            >
+              <Mono style={{ fontSize: 11, color: C.tealText }}>
+                {canAskAgain ? 'ENABLE LOCATION PERMISSION' : 'OPEN SYSTEM SETTINGS'}
+              </Mono>
+            </Pressable>
+          )}
         </View>
 
         <Mono style={styles.sectionLabel}>DEVICE INFO</Mono>
         <View style={styles.card}>
+          <InfoRow label="DEVICE" value={me?.deviceName || '—'} valueColor={C.tealText} border />
           <InfoRow label="DEVICE ID" value={me?.deviceId ?? '—'} valueColor={C.tealText} border />
           <InfoRow label="APP VERSION" value={APP_VERSION} border />
           <InfoRow label="REGISTERED ON" value={isoDate(me?.createdAt)} />

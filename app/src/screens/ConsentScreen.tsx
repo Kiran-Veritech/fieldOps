@@ -1,4 +1,5 @@
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
+import { useState } from 'react'
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { PrimaryButton } from '../components/ui'
 import { usePresence } from '../location/PresenceProvider'
@@ -17,18 +18,26 @@ const ROWS: { title: string; body: string; accent?: string }[] = [
 ]
 
 export default function ConsentScreen({ navigation, route }: AuthScreenProps<'Consent'>) {
-  const { requestPermission } = usePresence()
+  const { requestPermission, openSystemSettings, canAskAgain } = usePresence()
+  const [busy, setBusy] = useState(false)
+  const [denied, setDenied] = useState(false)
 
-  const proceed = async () => {
-    const ok = await requestPermission()
-    if (!ok) {
-      Alert.alert(
-        'Location required',
-        'FieldOps needs location while you use the app so operations can see you on the live map.',
-      )
-      return
+  const proceedAfter = () => navigation.navigate('Capturing', route.params)
+
+  const allow = async () => {
+    if (busy) return
+    setBusy(true)
+    setDenied(false)
+    try {
+      const granted = await requestPermission()
+      if (granted) {
+        proceedAfter()
+        return
+      }
+      setDenied(true)
+    } finally {
+      setBusy(false)
     }
-    navigation.navigate('Capturing', route.params)
   }
 
   const onNotNow = () => {
@@ -49,8 +58,10 @@ export default function ConsentScreen({ navigation, route }: AuthScreenProps<'Co
           <View style={styles.icon}>
             <Text style={{ color: C.teal, fontSize: 24 }}>◎</Text>
           </View>
-          <Text style={styles.title}>Share your location</Text>
-          <Text style={styles.sub}>Here&apos;s exactly what FieldOps Nexus collects — and what it never does.</Text>
+          <Text style={styles.title}>Enable location</Text>
+          <Text style={styles.sub}>
+            FieldOps needs location while you use the app so operations can see you on the live map.
+          </Text>
         </View>
 
         <View style={styles.card}>
@@ -64,12 +75,40 @@ export default function ConsentScreen({ navigation, route }: AuthScreenProps<'Co
             </View>
           ))}
         </View>
+
+        {denied && (
+          <Text style={styles.denied}>
+            {canAskAgain
+              ? 'Permission was not granted. Tap Allow to try again — location is required for live presence.'
+              : 'Location is blocked for this app. Open system settings to enable it, then return here.'}
+          </Text>
+        )}
       </View>
 
       <View style={styles.footer}>
-        <PrimaryButton label="Allow while using the app" onPress={() => void proceed()} />
-        <Pressable style={{ paddingVertical: 13, alignItems: 'center' }} onPress={onNotNow}>
-          <Text style={{ fontSize: 13, fontWeight: '600', color: C.textDim }}>Not now</Text>
+        <PrimaryButton
+          label={busy ? 'Requesting…' : 'Allow while using the app'}
+          onPress={allow}
+          disabled={busy}
+          loading={busy}
+        />
+        {denied && !canAskAgain && (
+          <Pressable style={styles.secondary} onPress={() => void openSystemSettings()}>
+            <Text style={styles.secondaryText}>Open settings</Text>
+          </Pressable>
+        )}
+        <Pressable
+          style={styles.secondary}
+          disabled={busy}
+          onPress={proceedAfter}
+          accessibilityRole="button"
+          accessibilityLabel="Continue without location"
+        >
+          {busy ? (
+            <ActivityIndicator color={C.textDim} />
+          ) : (
+            <Text style={styles.skipText}>Continue without location</Text>
+          )}
         </Pressable>
       </View>
     </SafeAreaView>
@@ -98,5 +137,15 @@ const styles = StyleSheet.create({
   dot: { width: 16, height: 16, borderRadius: 8, borderWidth: 1.4, marginTop: 2 },
   rowTitle: { fontSize: 13, color: '#E8EDF4', fontWeight: '600' },
   rowBody: { fontSize: 12, color: C.textDim, marginTop: 3, lineHeight: 17 },
+  denied: {
+    marginTop: 14,
+    fontSize: 12,
+    lineHeight: 18,
+    color: C.amberBright,
+    textAlign: 'center',
+  },
   footer: { paddingHorizontal: 22, paddingBottom: 8 },
+  secondary: { paddingVertical: 13, alignItems: 'center' },
+  secondaryText: { fontSize: 13, fontWeight: '600', color: C.tealText },
+  skipText: { fontSize: 13, fontWeight: '600', color: C.textDim },
 })

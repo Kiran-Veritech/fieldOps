@@ -77,6 +77,7 @@ async def register(body: RegisterRequest) -> AuthResponse:
         )
 
     designation = body.designation
+    device_name = (body.deviceName or "").strip()
     user = User(
         fullName=body.fullName,
         workEmail=email,
@@ -85,6 +86,7 @@ async def register(body: RegisterRequest) -> AuthResponse:
         role=Role.EMPLOYEE,
         passwordHash=hash_password(body.password) if body.password else None,
         deviceId=body.deviceId,
+        deviceName=device_name,
         appVersion=body.appVersion,
         initialLocation=InitialLocation(
             lat=body.initialLocation.lat, lng=body.initialLocation.lng
@@ -129,13 +131,50 @@ async def login(body: LoginRequest) -> AuthResponse:
             status_code=status.HTTP_403_FORBIDDEN, detail="This account is deactivated"
         )
 
+    # Persist/refresh device binding when the field app sends it.
+    changes: dict = {}
+    if body.deviceId:
+        new_id = body.deviceId.strip()
+        if new_id:
+            if new_id != user.get("deviceId"):
+                others = [
+                    u
+                    for u in await repo.find_active_users_by_device(new_id)
+                    if u["_id"] != user["_id"]
+                ]
+                if others:
+                    await repo.add_user_flag(
+                        user["_id"],
+                        UserFlag(
+                            type="device_reused",
+                            detail=f"deviceId {new_id} already active on {others[0]['fullName']}",
+                        ).model_dump(),
+                    )
+                    await repo.write_audit(
+                        action=AuditAction.FLAG,
+                        entity_type="user",
+                        entity_id=user["_id"],
+                        actor_label="system",
+                        payload={"type": "device_reused", "deviceId": new_id, "via": "login"},
+                    )
+            changes["deviceId"] = new_id
+    if body.deviceName is not None:
+        changes["deviceName"] = body.deviceName.strip()
+
+    if changes:
+        user = await repo.update_user(user["_id"], changes) or user
+
     await repo.write_audit(
         action=AuditAction.LOGIN,
         entity_type="user",
         entity_id=user["_id"],
         actor_label=user["fullName"],
         actor_id=user["_id"],
-        payload={"role": user["role"]},
+        payload={
+            "role": user["role"],
+            "deviceId": user.get("deviceId"),
+            "deviceName": user.get("deviceName") or "",
+        },
     )
 
     tokens = create_token_pair(user["_id"], user["role"])

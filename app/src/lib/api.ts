@@ -127,6 +127,7 @@ export async function register(body: {
   fullName: string
   designation: string
   deviceId: string
+  deviceName: string
   appVersion: string
   initialLocation: { lat: number; lng: number }
   password?: string
@@ -136,10 +137,18 @@ export async function register(body: {
   return res
 }
 
-export async function login(workEmail: string, password: string): Promise<AuthResponse> {
+export async function login(
+  workEmail: string,
+  password: string,
+  device?: { deviceId: string; deviceName: string },
+): Promise<AuthResponse> {
   const res = await api<AuthResponse>('/auth/login', {
     method: 'POST',
-    body: { workEmail, password },
+    body: {
+      workEmail,
+      password,
+      ...(device ?? {}),
+    },
     auth: false,
   })
   await setTokens(res.tokens)
