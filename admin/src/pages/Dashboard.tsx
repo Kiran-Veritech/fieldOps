@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useChrome } from '../components/shell/chrome'
+import { Link, useNavigate } from 'react-router-dom'
+import { useChrome, useGlobalSearch, type SearchHit } from '../components/shell/chrome'
 import { designationColor } from '../data/designations'
 import { api } from '../lib/api'
 import { clockOf, initials, timeAgo } from '../lib/format'
@@ -16,19 +16,22 @@ type Summary = {
   }
   series24h: { hour: string; online: number; offline: number }[]
 }
-type User = { id: string; fullName: string; createdAt: string | null }
-type Project = { _id: string; name: string }
+type User = { id: string; fullName: string; workEmail?: string; designation?: string; createdAt: string | null }
+type Project = { _id: string; name: string; code?: string }
 type Asset = { _id: string; name: string; serialNumber: string; ownerId: string; createdAt: string }
 
 const POLL_MS = 10_000
 
 export function Dashboard() {
   useChrome({ subtitle: 'GURUGRAM · DELHI NCR · SHIFT A', showSearch: true })
+  const navigate = useNavigate()
+  const { searchQuery, setSearchHits, setOnSearchSelect, clearSearch } = useGlobalSearch()
 
   const [summary, setSummary] = useState<Summary | null>(null)
   const [users, setUsers] = useState<User[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [pending, setPending] = useState<Asset[]>([])
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     const [s, u, p, a] = await Promise.all([
@@ -41,13 +44,57 @@ export function Dashboard() {
     setUsers(u.items)
     setProjects(p)
     setPending(a)
+    setLoadError(null)
   }, [])
 
   useEffect(() => {
-    refresh().catch(() => {})
+    refresh().catch((e) => setLoadError(e instanceof Error ? e.message : 'Failed to load'))
     const id = setInterval(() => refresh().catch(() => {}), POLL_MS)
     return () => clearInterval(id)
   }, [refresh])
+
+  useEffect(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) {
+      setSearchHits([])
+      return
+    }
+    const hits: SearchHit[] = []
+    for (const u of users) {
+      const hay = `${u.fullName} ${u.workEmail ?? ''} ${u.designation ?? ''}`.toLowerCase()
+      if (!hay.includes(q)) continue
+      hits.push({
+        id: u.id,
+        title: u.fullName,
+        subtitle: u.designation ?? u.workEmail,
+        kind: 'operator',
+      })
+      if (hits.length >= 10) break
+    }
+    if (hits.length < 10) {
+      for (const p of projects) {
+        const hay = `${p.name} ${p.code ?? ''}`.toLowerCase()
+        if (!hay.includes(q)) continue
+        hits.push({
+          id: p._id,
+          title: p.name,
+          subtitle: p.code,
+          kind: 'project',
+        })
+        if (hits.length >= 10) break
+      }
+    }
+    setSearchHits(hits)
+  }, [searchQuery, users, projects, setSearchHits])
+
+  useEffect(() => {
+    setOnSearchSelect((hit) => {
+      clearSearch()
+      if (hit.kind === 'operator') navigate(`/users/${hit.id}`)
+      else navigate(`/projects/${hit.id}`)
+    })
+    return () => setOnSearchSelect(null)
+  }, [setOnSearchSelect, clearSearch, navigate])
 
   const nameById = useMemo(() => new Map(users.map((u) => [u.id, u.fullName])), [users])
   const projById = useMemo(() => new Map(projects.map((p) => [p._id, p.name])), [projects])
@@ -55,7 +102,16 @@ export function Dashboard() {
   if (!summary) {
     return (
       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span className="mono" style={{ fontSize: 11, letterSpacing: '0.12em', color: '#5A6B84' }}>LOADING DASHBOARD…</span>
+        <div style={{ textAlign: 'center' }}>
+          <span className="mono" style={{ fontSize: 11, letterSpacing: '0.12em', color: '#5A6B84' }}>
+            {loadError ? 'LOAD FAILED' : 'LOADING DASHBOARD…'}
+          </span>
+          {loadError && (
+            <div className="mono" style={{ fontSize: 11, color: '#FB7185', marginTop: 10, maxWidth: 360 }}>
+              {loadError}
+            </div>
+          )}
+        </div>
       </div>
     )
   }

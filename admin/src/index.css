@@ -227,3 +227,16 @@ a:hover {
   background: #1e2a3d;
   border-radius: 3px;
 }
+
+/* Live Map — pin popup (MapLibre Popup shell) */
+.fon-map-popup .maplibregl-popup-content {
+  background: #0e1626;
+  border: 1px solid #16c0ae;
+  border-radius: 2px;
+  padding: 6px 10px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+  color: #f0f4fa;
+}
+.fon-map-popup .maplibregl-popup-tip {
+  border-top-color: #16c0ae;
+}

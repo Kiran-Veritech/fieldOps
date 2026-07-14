@@ -15,10 +15,13 @@ import { api } from '../lib/api'
 import type { GeoPoint } from '../types'
 
 const PING_INTERVAL_MS = 10_000
+const ONLINE_WINDOW_MS = 60_000
 
 type PresenceState = {
+  /** Whether the user has opted to transmit pings (foreground only). */
   sharing: boolean
   setSharing: (on: boolean) => void
+  /** Client clock of last successful /pings POST. */
   lastPingAt: number | null
   lastLocation: GeoPoint | null
   hasPermission: boolean
@@ -30,6 +33,25 @@ type PresenceState = {
 }
 
 const PresenceContext = createContext<PresenceState | null>(null)
+
+async function readGps(): Promise<GeoPoint | null> {
+  try {
+    const last = await Location.getLastKnownPositionAsync()
+    if (last) {
+      return { lat: last.coords.latitude, lng: last.coords.longitude }
+    }
+  } catch {
+    // ignore — try a fresh fix below
+  }
+  try {
+    const pos = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    })
+    return { lat: pos.coords.latitude, lng: pos.coords.longitude }
+  } catch {
+    return null
+  }
+}
 
 export function PresenceProvider({ children }: { children: ReactNode }) {
   const { me } = useAuth()
@@ -105,15 +127,22 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       // Fall back to the last known / initial fix so a ping still lands.
       coords = lastLocation ?? me.lastLocation ?? me.initialLocation ?? null
     }
-    if (!coords) return
+    if (!permission) return false
+
+    // Real GPS only — never re-post a fixed mock / seed location.
+    const coords = await readGps()
+    if (!coords) return false
+
     try {
       await api('/pings', { method: 'POST', body: coords })
+      lastLocationRef.current = coords
       setLastLocation(coords)
       setLastPingAt(Date.now())
+      return true
     } catch {
-      // swallow — the sync indicator will read stale until the next tick
+      return false
     }
-  }, [me, lastLocation])
+  }, [me, hasPermission])
 
   // The ping loop: runs only while signed in, sharing, permissioned, and foregrounded.
   useEffect(() => {

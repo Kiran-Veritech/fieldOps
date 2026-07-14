@@ -4,8 +4,8 @@ import { api, clearTokens, getToken, login as apiLogin } from '../lib/api'
 // Until the dedicated Login screen (Admin Utility Screens) is built, the admin
 // app bootstraps a session with the seeded demo admin so the authenticated
 // screens work. Swap this for the real login form later.
-const DEMO_EMAIL = import.meta.env.VITE_DEMO_EMAIL ?? 'tara.singh@fieldops.io'
-const DEMO_PASSWORD = import.meta.env.VITE_DEMO_PASSWORD ?? 'FieldOps!23'
+const DEMO_EMAIL = import.meta.env.VITE_DEMO_EMAIL ?? 'admin@fieldops.io'
+const DEMO_PASSWORD = import.meta.env.VITE_DEMO_PASSWORD ?? 'Password123!'
 
 type Admin = { fullName?: string; workEmail?: string } | null
 
@@ -34,21 +34,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     async function bootstrap() {
       try {
+        // Prefer a fresh demo login when the stored session can't talk to the API
+        // (expired tokens, or reseed that revoked all user ids). Cap waits so a
+        // hung backend can't leave the UI on CONNECTING forever.
+        const withTimeout = <T,>(p: Promise<T>, ms = 12_000) =>
+          Promise.race([
+            p,
+            new Promise<T>((_, rej) => setTimeout(() => rej(new Error('Backend timed out')), ms)),
+          ])
+
         if (getToken()) {
-          // Validate the stored session (the client auto-refreshes an expired
-          // access token). If it can't be revived, fall back to a fresh login
-          // so we never get stuck with a dead token.
           try {
-            const me = await api<Admin>('/auth/whoami')
+            const me = await withTimeout(api<Admin>('/auth/whoami'))
             if (!cancelled) setAdmin(me)
           } catch {
             clearTokens()
-            await doLogin(DEMO_EMAIL, DEMO_PASSWORD)
+            await withTimeout(doLogin(DEMO_EMAIL, DEMO_PASSWORD))
           }
         } else {
-          await doLogin(DEMO_EMAIL, DEMO_PASSWORD)
+          await withTimeout(doLogin(DEMO_EMAIL, DEMO_PASSWORD))
         }
       } catch (e) {
+        clearTokens()
         if (!cancelled) setError(e instanceof Error ? e.message : 'Auth failed')
       } finally {
         if (!cancelled) setReady(true)

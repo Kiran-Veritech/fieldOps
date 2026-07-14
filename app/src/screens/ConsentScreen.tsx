@@ -40,6 +40,17 @@ export default function ConsentScreen({ navigation, route }: AuthScreenProps<'Co
     }
   }
 
+  const onNotNow = () => {
+    Alert.alert(
+      'Location required to continue',
+      'Without GPS you cannot register or appear online. Allow location to join your team.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Allow location', onPress: () => void proceed() },
+      ],
+    )
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.body}>

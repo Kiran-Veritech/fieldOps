@@ -8,7 +8,12 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import settings
 from .db import close_mongo_connection, connect_to_mongo, ensure_indexes, ping_database
+from .jsonutil import install_utc_json_encoders
 from .routers import assets, audit, auth, dashboard, presence, projects, tasks, users
+
+# Naive Mongo datetimes must serialize with a Z so browsers (e.g. IST) don't
+# treat them as local wall time and show everything as "~5h 30m ago".
+install_utc_json_encoders()
 
 API_PREFIX = "/api/v1"
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"

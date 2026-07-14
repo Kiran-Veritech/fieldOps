@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs'
 import { Avatar, Mono } from '../components/ui'
+import { OnlinePulseDot, PulsatingPing } from '../components/PulsatingPing'
 import { TASK_STATUS } from '../components/tokens'
 import { usePresence } from '../location/PresenceProvider'
 import { useMyWork } from '../hooks/useMyWork'
@@ -52,7 +53,7 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
-          <Avatar text={initials(me?.fullName ?? '')} color={catColor} online={live} size={34} />
+          <Avatar text={initials(me?.fullName ?? '')} color={catColor} online={online} size={34} />
           <View>
             <Text style={{ fontSize: 14, fontWeight: '600', color: C.text }}>{me?.fullName}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
@@ -65,12 +66,12 @@ export default function HomeScreen() {
           style={[
             styles.onlinePill,
             {
-              borderColor: live ? 'rgba(63,208,126,0.35)' : C.hairline,
+              borderColor: online ? 'rgba(63,208,126,0.35)' : C.hairline,
             },
           ]}
         >
-          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: live ? C.green : C.grey }} />
-          <Mono style={{ fontSize: 10, color: live ? C.green : '#94A0B4' }}>{live ? 'ONLINE' : 'OFFLINE'}</Mono>
+          <OnlinePulseDot online={online} size={6} />
+          <Mono style={{ fontSize: 10, color: online ? C.green : '#94A0B4' }}>{online ? 'ONLINE' : 'OFFLINE'}</Mono>
         </View>
       </View>
 
@@ -114,6 +115,8 @@ export default function HomeScreen() {
                 <Mono style={{ fontSize: 11, color: C.textFaint, marginTop: 2 }}>
                   {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
                 </Mono>
+              ) : (
+                <Mono style={{ fontSize: 11, color: C.textFaint, marginTop: 2 }}>No fix yet</Mono>
               )}
             </View>
           </View>
@@ -222,23 +225,6 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 18,
     overflow: 'hidden',
-  },
-  radar: { width: 58, height: 58, alignItems: 'center', justifyContent: 'center' },
-  radarRing: {
-    position: 'absolute',
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    borderWidth: 1,
-    borderColor: C.teal,
-  },
-  radarDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 8,
   },
   shareFoot: {
     flexDirection: 'row',

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Avatar, DangerButton, GhostButton, Mono } from '../components/ui'
+import { OnlinePulseDot } from '../components/PulsatingPing'
 import { useAuth } from '../auth/AuthContext'
 import { usePresence } from '../location/PresenceProvider'
 import { designationColor } from '../data/designations'
@@ -61,7 +62,7 @@ export default function ProfileScreen() {
 
       <ScrollView contentContainerStyle={{ padding: 20 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15, marginBottom: 22 }}>
-          <Avatar text={initials(me?.fullName ?? '')} color={catColor} size={60} online={live} />
+          <Avatar text={initials(me?.fullName ?? '')} color={catColor} size={60} online={online} />
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 20, fontWeight: '700', color: C.text }}>{me?.fullName}</Text>
             <Mono style={{ fontSize: 11, color: '#5BC7BB', marginTop: 4 }}>{me?.workEmail}</Mono>
@@ -75,16 +76,24 @@ export default function ProfileScreen() {
         </View>
 
         <Mono style={styles.sectionLabel}>LOCATION SHARING</Mono>
-        <View style={[styles.shareCard, { borderLeftColor: sharing ? C.teal : C.line2 }]}>
+        <View style={[styles.shareCard, { borderLeftColor: online ? C.teal : C.line2 }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: sharing ? C.green : C.grey }} />
+              <OnlinePulseDot online={online} size={8} />
               <View>
                 <Text style={{ fontSize: 14, fontWeight: '600', color: C.text }}>
-                  {sharing ? 'Sharing is on' : 'Sharing is off'}
+                  {!hasPermission
+                    ? 'Location permission off'
+                    : sharing
+                      ? online
+                        ? 'Sharing is on'
+                        : 'Connecting…'
+                      : 'Sharing is off'}
                 </Text>
                 <Mono style={{ fontSize: 10, color: C.textFaint, marginTop: 2 }}>
-                  {sharing ? `PING EVERY 10s · LAST ${timeAgo(lastPingAt ? new Date(lastPingAt).toISOString() : null).toUpperCase()}` : 'NO PINGS TRANSMITTING'}
+                  {sharing
+                    ? `PING EVERY 10s · LAST ${timeAgo(lastPingAt ? new Date(lastPingAt).toISOString() : null).toUpperCase()}`
+                    : 'NO PINGS TRANSMITTING'}
                 </Mono>
               </View>
             </View>

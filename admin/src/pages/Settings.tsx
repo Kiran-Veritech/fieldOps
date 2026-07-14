@@ -9,7 +9,7 @@ export function Settings() {
   const { admin, logout } = useAuth()
   useChrome({ subtitle: 'WORKSPACE CONFIGURATION', showSearch: false })
 
-  const email = admin?.workEmail ?? 'ops.admin@fieldops.io'
+  const email = admin?.workEmail ?? 'admin@fieldops.io'
   const domain = email.split('@')[1] ?? 'fieldops.io'
 
   return (

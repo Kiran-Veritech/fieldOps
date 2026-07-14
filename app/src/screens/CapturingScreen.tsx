@@ -2,16 +2,12 @@ import * as Location from 'expo-location'
 import { useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { PrimaryButton } from '../components/ui'
+import { PrimaryButton, GhostButton } from '../components/ui'
 import { useAuth } from '../auth/AuthContext'
 import { APP_VERSION, getDeviceInfo } from '../lib/device'
 import { ApiError, register } from '../lib/api'
 import { C, mono, RADIUS } from '../theme'
 import type { AuthScreenProps } from '../navigation/types'
-
-// Fallback fix (Gurugram / Delhi NCR) if the user declined location so
-// registration — which requires an initial location — can still complete.
-const FALLBACK = { lat: 28.4601, lng: 77.0281 }
 
 type Step = { done: boolean; label: string; value: string; valueColor?: string }
 
@@ -22,6 +18,7 @@ export default function CapturingScreen({ navigation, route }: AuthScreenProps<'
   const [deviceName, setDeviceName] = useState('…')
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [phase, setPhase] = useState<'device' | 'location' | 'register' | 'ping'>('device')
   const started = useRef(false)
 
   useEffect(() => {
@@ -43,14 +40,10 @@ export default function CapturingScreen({ navigation, route }: AuthScreenProps<'
           const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
           loc = { lat: pos.coords.latitude, lng: pos.coords.longitude }
         }
-      } catch {
-        loc = FALLBACK
-      }
-      setCoords(loc)
+        setCoords(loc)
+        setPhase('register')
 
-      // Brief pause so the "capturing" sequence is legible, then register.
-      await new Promise((r) => setTimeout(r, 900))
-      try {
+        await new Promise((r) => setTimeout(r, 600))
         const res = await register({
           workEmail: email,
           fullName,
@@ -60,10 +53,23 @@ export default function CapturingScreen({ navigation, route }: AuthScreenProps<'
           appVersion: APP_VERSION,
           initialLocation: loc,
         })
+
+        // Send the first real presence ping so ops sees you online immediately.
+        setPhase('ping')
+        try {
+          await api('/pings', { method: 'POST', body: loc })
+        } catch {
+          // PresenceProvider will retry once the session mounts.
+        }
+
         setMe(res.user)
-        // On success the root navigator swaps to the tab app automatically.
       } catch (e) {
-        const msg = e instanceof ApiError ? e.message : 'Could not reach operations. Check your connection.'
+        const msg =
+          e instanceof ApiError
+            ? e.message
+            : e instanceof Error
+              ? e.message
+              : 'Could not reach operations. Check your connection.'
         setError(msg)
       }
     })()
@@ -74,7 +80,7 @@ export default function CapturingScreen({ navigation, route }: AuthScreenProps<'
     {
       done: !!coords,
       label: 'Initial location captured',
-      value: coords ? `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : '…',
+      value: coords ? `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : 'Reading GPS…',
       valueColor: '#5BC7BB',
     },
   ]
@@ -89,19 +95,25 @@ export default function CapturingScreen({ navigation, route }: AuthScreenProps<'
           <Text style={styles.title}>Couldn&apos;t set you up</Text>
           <Text style={styles.sub}>{error}</Text>
         </View>
-        <View style={{ padding: 22 }}>
+        <View style={{ padding: 22, gap: 10 }}>
           <PrimaryButton
             label="Try again"
             onPress={() => {
               started.current = false
               setError(null)
+              setCoords(null)
+              setPhase('device')
               navigation.replace('Capturing', route.params)
             }}
           />
+          <GhostButton label="Back to consent" onPress={() => navigation.navigate('Consent', route.params)} />
         </View>
       </SafeAreaView>
     )
   }
+
+  const syncLabel =
+    phase === 'ping' ? 'FIRST PING SENT' : phase === 'register' ? 'REGISTERING…' : 'SENDING FIRST PING'
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -110,7 +122,7 @@ export default function CapturingScreen({ navigation, route }: AuthScreenProps<'
           <ActivityIndicator size="large" color={C.teal} />
         </View>
         <Text style={styles.title}>Setting you up</Text>
-        <Text style={styles.sub}>Capturing your device and first location fix…</Text>
+        <Text style={styles.sub}>Capturing your device and real GPS fix — no mock location.</Text>
 
         <View style={styles.card}>
           {steps.map((s, i) => (
@@ -132,11 +144,15 @@ export default function CapturingScreen({ navigation, route }: AuthScreenProps<'
           ))}
           <View style={styles.row}>
             <View style={[styles.check, { backgroundColor: 'rgba(22,192,174,0.14)' }]}>
-              <ActivityIndicator size="small" color={C.teal} />
+              {phase === 'ping' ? (
+                <Text style={{ color: C.greenText, fontWeight: '700', fontSize: 12 }}>✓</Text>
+              ) : (
+                <ActivityIndicator size="small" color={C.teal} />
+              )}
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 13, color: '#E8EDF4' }}>Syncing with operations…</Text>
-              <Text style={{ fontFamily: mono, fontSize: 11, color: C.textFaint, marginTop: 2 }}>SENDING FIRST PING</Text>
+              <Text style={{ fontFamily: mono, fontSize: 11, color: C.textFaint, marginTop: 2 }}>{syncLabel}</Text>
             </View>
           </View>
         </View>
