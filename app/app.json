@@ -15,11 +15,12 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "FieldOps Nexus shares your location with operations every 10 seconds while the app is open so your team can coordinate the field. Sharing stops the moment you close the app.",
+        "NSLocationWhenInUseUsageDescription": "FieldOps Nexus shares your location with operations every 20 seconds while the app is open so your team can coordinate the field. Sharing stops the moment you close the app.",
         "NSCameraUsageDescription": "FieldOps Nexus uses the camera to photograph assets you enlist for approval."
       }
     },
     "android": {
+      "package": "io.fieldops.nexus",
       "adaptiveIcon": {
         "backgroundColor": "#04060B",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -49,7 +50,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "FieldOps Nexus shares your location with operations every 10 seconds while the app is open so your team can coordinate."
+          "locationWhenInUsePermission": "FieldOps Nexus shares your location with operations every 20 seconds while the app is open so your team can coordinate."
         }
       ],
       [

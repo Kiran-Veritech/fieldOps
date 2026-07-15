@@ -79,13 +79,13 @@ export default function OnboardingScreen({ navigation }: AuthScreenProps<'Onboar
           <>
             <Text style={styles.title}>Location is shared{'\n'}while the app is open</Text>
             <Text style={styles.sub}>
-              While FieldOps Nexus is open, your position updates every 10 seconds so ops can coordinate the field.
+              While FieldOps Nexus is open, your position updates every 20 seconds so ops can coordinate the field.
               Close the app and sharing stops — no background tracking.
             </Text>
             <View style={styles.pingChip}>
               <View style={styles.pingDot} />
               <Text style={{ fontFamily: mono, fontSize: 11, color: C.tealBright }}>
-                PING EVERY 10s · ONLY WHILE OPEN
+                PING EVERY 20s · ONLY WHILE OPEN
               </Text>
             </View>
           </>
@@ -98,6 +98,9 @@ export default function OnboardingScreen({ navigation }: AuthScreenProps<'Onboar
           label={index === 0 ? 'Next' : 'Get started'}
           onPress={() => (index === 0 ? setIndex(1) : navigation.navigate('Register'))}
         />
+        <Pressable onPress={() => navigation.navigate('Login')} style={{ marginTop: 14, alignItems: 'center' }}>
+          <Mono style={{ fontSize: 12, color: C.tealText }}>Already registered? Sign in</Mono>
+        </Pressable>
       </View>
     </SafeAreaView>
   )

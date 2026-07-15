@@ -11,6 +11,7 @@ from .config import settings
 
 ACCESS = "access"
 REFRESH = "refresh"
+PASSWORD_RESET = "password_reset"
 
 
 # ---------------------------------------------------------------------------
@@ -58,6 +59,11 @@ def create_refresh_token(sub: str, role: str) -> str:
     return _create_token(
         sub, role, REFRESH, timedelta(days=settings.refresh_token_expire_days)
     )
+
+
+def create_password_reset_token(sub: str, role: str) -> str:
+    """Short-lived token issued after a successful forgot-password OTP check."""
+    return _create_token(sub, role, PASSWORD_RESET, timedelta(minutes=15))
 
 
 def create_token_pair(sub: str, role: str) -> dict:

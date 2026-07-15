@@ -3,55 +3,40 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Avatar, DangerButton, GhostButton, Mono } from '../components/ui'
 import { OnlinePulseDot } from '../components/PulsatingPing'
+import { ProfileInfoSheet, type InfoTopic } from '../components/ProfileInfoSheet'
 import { useAuth } from '../auth/AuthContext'
 import { usePresence } from '../location/PresenceProvider'
+import { useNetworkOnline } from '../hooks/useNetworkStatus'
 import { designationColor } from '../data/designations'
 import { APP_VERSION } from '../lib/device'
 import { initials, isoDate, timeAgo } from '../lib/format'
 import { C, mono, RADIUS } from '../theme'
 
-function Toggle({ on, onPress }: { on: boolean; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={{
-        width: 42,
-        height: 24,
-        borderRadius: 999,
-        backgroundColor: on ? C.teal : C.line2,
-        justifyContent: 'center',
-      }}
-    >
-      <View
-        style={{
-          position: 'absolute',
-          top: 2,
-          left: on ? 20 : 2,
-          width: 20,
-          height: 20,
-          borderRadius: 10,
-          backgroundColor: on ? C.bgDeep : C.textDim,
-        }}
-      />
-    </Pressable>
-  )
-}
-
 export default function ProfileScreen() {
   const { me, signOut } = useAuth()
-  const { sharing, setSharing, lastPingAt, hasPermission, canAskAgain, enableSharing, openSystemSettings } =
-    usePresence()
+  const networkOnline = useNetworkOnline()
+  const {
+    sharing,
+    lastPingAt,
+    hasPermission,
+    canAskAgain,
+    enableSharing,
+    openSystemSettings,
+    online: presenceOnline,
+    requestPermission,
+    pingNow,
+  } = usePresence()
   const [confirm, setConfirm] = useState(false)
+  const [infoTopic, setInfoTopic] = useState<InfoTopic | null>(null)
   const [, setTick] = useState(0)
 
-  // Refresh the "LAST Xs AGO" label every second.
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 1000)
     return () => clearInterval(id)
   }, [])
 
+  const online = presenceOnline && networkOnline
   const catColor = designationColor(me?.designation)
-  const live = sharing && hasPermission && lastPingAt !== null && Date.now() - lastPingAt < 60_000
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -84,33 +69,39 @@ export default function ProfileScreen() {
                 <Text style={{ fontSize: 14, fontWeight: '600', color: C.text }}>
                   {!hasPermission
                     ? 'Location permission off'
-                    : sharing
-                      ? online
-                        ? 'Sharing is on'
-                        : 'Connecting…'
-                      : 'Sharing is off'}
+                    : online
+                      ? 'Sharing is on'
+                      : 'Connecting…'}
                 </Text>
                 <Mono style={{ fontSize: 10, color: C.textFaint, marginTop: 2 }}>
-                  {sharing
-                    ? `PING EVERY 10s · LAST ${timeAgo(lastPingAt ? new Date(lastPingAt).toISOString() : null).toUpperCase()}`
-                    : 'NO PINGS TRANSMITTING'}
+                  {sharing && hasPermission
+                    ? `PING EVERY 20s · LAST ${timeAgo(lastPingAt ? new Date(lastPingAt).toISOString() : null).toUpperCase()}`
+                    : 'WAITING FOR GPS PERMISSION'}
                 </Mono>
               </View>
             </View>
-            <Toggle
-              on={sharing && hasPermission}
-              onPress={() => {
-                if (sharing && hasPermission) setSharing(false)
-                else void enableSharing()
-              }}
-            />
+            {!hasPermission ? (
+              <Pressable
+                onPress={async () => {
+                  const ok = await requestPermission()
+                  if (ok) {
+                    void enableSharing()
+                    void pingNow()
+                  } else if (!canAskAgain) {
+                    void openSystemSettings()
+                  }
+                }}
+              >
+                <Mono style={{ fontSize: 10, color: C.tealText }}>ALLOW</Mono>
+              </Pressable>
+            ) : (
+              <Mono style={{ fontSize: 9, color: C.tealText, letterSpacing: 0.6 }}>ALWAYS ON</Mono>
+            )}
           </View>
           <Text style={styles.shareBody}>
-            {sharing && hasPermission
-              ? "You're visible to operations on the live map. Sharing runs only while the app is open and stops the moment you close it — never in the background."
-              : !hasPermission
-                ? 'Location permission is off. Enable it so operations can see you on the live map while the app is open.'
-                : 'Turn sharing back on to appear on the live map. Ops currently cannot see your position.'}
+            {hasPermission
+              ? "You're visible to operations on the live map. Sharing stays on while the app is open and cannot be paused — it stops only when you close the app."
+              : 'Location permission is off. Enable it so operations can see you on the live map while the app is open.'}
           </Text>
           {!hasPermission && (
             <Pressable
@@ -134,11 +125,23 @@ export default function ProfileScreen() {
 
         <Mono style={styles.sectionLabel}>ACCOUNT</Mono>
         <View style={styles.card}>
-          {['Notifications', 'Privacy & data', 'Help & support'].map((label, i) => (
-            <View key={label} style={[styles.accRow, i < 2 && styles.rowBorder]}>
-              <Text style={{ flex: 1, fontSize: 13, color: C.textBody }}>{label}</Text>
+          {(
+            [
+              { label: 'Notifications', topic: 'notifications' as const },
+              { label: 'Privacy & data', topic: 'privacy' as const },
+              { label: 'Help & support', topic: 'help' as const },
+            ] as const
+          ).map((item, i) => (
+            <Pressable
+              key={item.topic}
+              onPress={() => setInfoTopic(item.topic)}
+              style={[styles.accRow, i < 2 && styles.rowBorder]}
+              accessibilityRole="button"
+              accessibilityLabel={item.label}
+            >
+              <Text style={{ flex: 1, fontSize: 13, color: C.textBody }}>{item.label}</Text>
               <Mono style={{ fontSize: 12, color: C.textFaint }}>›</Mono>
-            </View>
+            </Pressable>
           ))}
         </View>
 
@@ -189,6 +192,8 @@ export default function ProfileScreen() {
           </SafeAreaView>
         </View>
       </Modal>
+
+      <ProfileInfoSheet topic={infoTopic} onClose={() => setInfoTopic(null)} />
     </SafeAreaView>
   )
 }

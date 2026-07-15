@@ -15,7 +15,12 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7
 
     # Registration domain allow-list
-    approved_email_domains: str = "fieldops.io"
+    approved_email_domains: str = "veritech.ai"
+
+    # Email (Resend) — OTP verification after registration
+    resend_api_key: str = ""
+    resend_from_email: str = "FieldOps Nexus <onboarding@resend.dev>"
+    otp_expire_minutes: int = 10
 
     @property
     def cors_origin_list(self) -> list[str]:

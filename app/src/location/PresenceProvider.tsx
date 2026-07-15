@@ -9,27 +9,26 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { AppState, Linking, type AppStateStatus } from 'react-native'
+import { AppState, Linking, Platform, type AppStateStatus } from 'react-native'
 import { useAuth } from '../auth/AuthContext'
 import { api } from '../lib/api'
 import type { GeoPoint } from '../types'
 
-const PING_INTERVAL_MS = 10_000
+const PING_INTERVAL_MS = 20_000
 const ONLINE_WINDOW_MS = 60_000
 
 type PresenceState = {
-  /** Whether the user has opted to transmit pings (foreground only). */
   sharing: boolean
   setSharing: (on: boolean) => void
-  /** Client clock of last successful /pings POST. */
   lastPingAt: number | null
   lastLocation: GeoPoint | null
   hasPermission: boolean
   canAskAgain: boolean
+  online: boolean
   requestPermission: () => Promise<boolean>
   openSystemSettings: () => Promise<void>
   enableSharing: () => Promise<boolean>
-  pingNow: () => Promise<void>
+  pingNow: () => Promise<boolean>
 }
 
 const PresenceContext = createContext<PresenceState | null>(null)
@@ -41,7 +40,7 @@ async function readGps(): Promise<GeoPoint | null> {
       return { lat: last.coords.latitude, lng: last.coords.longitude }
     }
   } catch {
-    // ignore — try a fresh fix below
+    // try a fresh fix below
   }
   try {
     const pos = await Location.getCurrentPositionAsync({
@@ -60,6 +59,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [lastLocation, setLastLocation] = useState<GeoPoint | null>(null)
   const [hasPermission, setHasPermission] = useState(false)
   const [canAskAgain, setCanAskAgain] = useState(true)
+  const [, setTick] = useState(0)
   const appActive = useRef(AppState.currentState === 'active')
   const promptedRef = useRef(false)
 
@@ -76,18 +76,37 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
-    const current = await Location.getForegroundPermissionsAsync()
-    if (current.status === 'granted') {
-      setHasPermission(true)
-      setCanAskAgain(current.canAskAgain)
-      return true
-    }
+    try {
+      const servicesOn = await Location.hasServicesEnabledAsync()
+      if (!servicesOn) {
+        // Device location master switch is off — send user to settings.
+        if (Platform.OS === 'android') {
+          await Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS').catch(() =>
+            Linking.openSettings(),
+          )
+        } else {
+          await Linking.openSettings()
+        }
+        setHasPermission(false)
+        return false
+      }
 
-    const { status, canAskAgain: again } = await Location.requestForegroundPermissionsAsync()
-    const granted = status === 'granted'
-    setHasPermission(granted)
-    setCanAskAgain(again)
-    return granted
+      const current = await Location.getForegroundPermissionsAsync()
+      if (current.status === 'granted') {
+        setHasPermission(true)
+        setCanAskAgain(current.canAskAgain)
+        return true
+      }
+
+      const { status, canAskAgain: again } = await Location.requestForegroundPermissionsAsync()
+      const granted = status === 'granted'
+      setHasPermission(granted)
+      setCanAskAgain(again)
+      return granted
+    } catch {
+      setHasPermission(false)
+      return false
+    }
   }, [])
 
   const openSystemSettings = useCallback(async () => {
@@ -106,36 +125,29 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
   const setSharing = useCallback(
     (on: boolean) => {
-      if (!on) {
-        setSharingState(false)
-        return
-      }
+      // Location sharing cannot be paused while signed in — only app close stops it.
+      if (!on) return
       void enableSharing()
     },
     [enableSharing],
   )
 
-  const pingNow = useCallback(async (): Promise<void> => {
-    if (!me) return
-    let coords: GeoPoint | null = null
-    try {
-      const pos = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      })
-      coords = { lat: pos.coords.latitude, lng: pos.coords.longitude }
-    } catch {
-      // Fall back to the last known / initial fix so a ping still lands.
-      coords = lastLocation ?? me.lastLocation ?? me.initialLocation ?? null
+  const pingNow = useCallback(async (): Promise<boolean> => {
+    if (!me) return false
+
+    let permission = hasPermission
+    if (!permission) {
+      const { status } = await Location.getForegroundPermissionsAsync()
+      permission = status === 'granted'
+      setHasPermission(permission)
     }
     if (!permission) return false
 
-    // Real GPS only — never re-post a fixed mock / seed location.
     const coords = await readGps()
     if (!coords) return false
 
     try {
       await api('/pings', { method: 'POST', body: coords })
-      lastLocationRef.current = coords
       setLastLocation(coords)
       setLastPingAt(Date.now())
       return true
@@ -144,9 +156,40 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
   }, [me, hasPermission])
 
-  // The ping loop: runs only while signed in, sharing, permissioned, and foregrounded.
+  // Session restore: seed last known location + prompt for permission once.
   useEffect(() => {
-    if (!me || !sharing || !hasPermission) return
+    if (!me) {
+      setLastPingAt(null)
+      setLastLocation(null)
+      setSharingState(true)
+      promptedRef.current = false
+      return
+    }
+
+    if (me.lastLocation) setLastLocation(me.lastLocation)
+    if (me.lastPingAt) {
+      const ts = new Date(me.lastPingAt).getTime()
+      if (!Number.isNaN(ts)) setLastPingAt(ts)
+    }
+
+    let cancelled = false
+    ;(async () => {
+      const granted = await syncPermission()
+      if (cancelled || promptedRef.current) return
+      if (!granted && sharing) {
+        promptedRef.current = true
+        await requestPermission()
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [me?.id, sharing, syncPermission, requestPermission])
+
+  // Ping loop while signed in, email-verified, sharing, permissioned, and foregrounded.
+  useEffect(() => {
+    if (!me || me.emailVerified === false || !sharing || !hasPermission) return
     let interval: ReturnType<typeof setInterval> | null = null
 
     const start = () => {
@@ -168,6 +211,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       if (next === 'active') {
         void syncPermission()
         start()
+      } else {
+        stop()
       }
     })
 
@@ -179,25 +224,18 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
   }, [me, sharing, hasPermission, pingNow, syncPermission])
 
-  // On session start: read permission; if sharing is on and we can still ask, prompt once.
   useEffect(() => {
-    if (!me) {
-      promptedRef.current = false
-      return
-    }
-    let cancelled = false
-    ;(async () => {
-      const granted = await syncPermission()
-      if (cancelled || promptedRef.current) return
-      if (!granted && sharing) {
-        promptedRef.current = true
-        await requestPermission()
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [me, sharing, syncPermission, requestPermission])
+    if (!me || !sharing) return
+    const id = setInterval(() => setTick((n) => n + 1), 1000)
+    return () => clearInterval(id)
+  }, [me, sharing])
+
+  const online =
+    !!me &&
+    sharing &&
+    hasPermission &&
+    lastPingAt !== null &&
+    Date.now() - lastPingAt < ONLINE_WINDOW_MS
 
   const value = useMemo<PresenceState>(
     () => ({
@@ -207,6 +245,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       lastLocation,
       hasPermission,
       canAskAgain,
+      online,
       requestPermission,
       openSystemSettings,
       enableSharing,
@@ -219,6 +258,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       lastLocation,
       hasPermission,
       canAskAgain,
+      online,
       requestPermission,
       openSystemSettings,
       enableSharing,

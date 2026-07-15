@@ -36,9 +36,8 @@ class RegisterRequest(BaseModel):
     deviceName: str = Field(default="", max_length=200)
     appVersion: str = "1.0.0"
     initialLocation: LocationIn
-    # Employees register from the app; a password lets them (and admins) use
-    # the /auth/login endpoint later. Optional to match the app's flow.
-    password: str | None = Field(default=None, min_length=6)
+    # Employees register from the app with a password for later login.
+    password: str = Field(min_length=6)
 
 
 class LoginRequest(BaseModel):
@@ -51,6 +50,24 @@ class LoginRequest(BaseModel):
 
 class RefreshRequest(BaseModel):
     refreshToken: str
+
+
+class VerifyEmailRequest(BaseModel):
+    code: str = Field(min_length=4, max_length=8)
+
+
+class ForgotPasswordRequest(BaseModel):
+    workEmail: EmailStr
+
+
+class VerifyResetOtpRequest(BaseModel):
+    workEmail: EmailStr
+    code: str = Field(min_length=4, max_length=8)
+
+
+class ResetPasswordRequest(BaseModel):
+    resetToken: str
+    password: str = Field(min_length=6)
 
 
 class PingRequest(BaseModel):
@@ -86,6 +103,7 @@ class UserPublic(BaseModel):
     createdAt: datetime | None = None
     flags: list[dict] = []
     online: bool = False
+    emailVerified: bool = True
 
     @classmethod
     def from_doc(cls, doc: dict, now: datetime | None = None) -> "UserPublic":
@@ -106,6 +124,8 @@ class UserPublic(BaseModel):
             createdAt=doc.get("createdAt"),
             flags=doc.get("flags", []),
             online=is_online(doc.get("lastPingAt"), now),
+            # Legacy / seeded users without the field are treated as verified.
+            emailVerified=bool(doc.get("emailVerified", True)),
         )
 
 

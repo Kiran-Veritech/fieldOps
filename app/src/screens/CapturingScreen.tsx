@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { PrimaryButton, GhostButton } from '../components/ui'
 import { useAuth } from '../auth/AuthContext'
 import { APP_VERSION, getDeviceInfo } from '../lib/device'
-import { ApiError, register } from '../lib/api'
+import { ApiError, api, register } from '../lib/api'
 import { C, mono, RADIUS } from '../theme'
 import type { AuthScreenProps } from '../navigation/types'
 
@@ -13,7 +13,7 @@ type Step = { done: boolean; label: string; value: string; valueColor?: string }
 
 export default function CapturingScreen({ navigation, route }: AuthScreenProps<'Capturing'>) {
   const { setMe } = useAuth()
-  const { email, fullName, designation } = route.params
+  const { email, fullName, designation, password } = route.params
   const [deviceId, setDeviceId] = useState('…')
   const [deviceName, setDeviceName] = useState('…')
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
@@ -26,17 +26,36 @@ export default function CapturingScreen({ navigation, route }: AuthScreenProps<'
     started.current = true
 
     ;(async () => {
-      const { deviceId: dev, deviceName: name } = await getDeviceInfo()
-      setDeviceId(dev)
-      setDeviceName(name)
-
-      let loc = FALLBACK
       try {
+        const { deviceId: dev, deviceName: name } = await getDeviceInfo()
+        setDeviceId(dev)
+        setDeviceName(name)
+        setPhase('location')
+
+        const servicesOn = await Location.hasServicesEnabledAsync()
+        if (!servicesOn) {
+          setError('Turn on Location / GPS in system settings, then try again.')
+          return
+        }
+
         let { status } = await Location.getForegroundPermissionsAsync()
         if (status !== 'granted') {
-          ;({ status } = await Location.requestForegroundPermissionsAsync())
+          const req = await Location.requestForegroundPermissionsAsync()
+          status = req.status
         }
-        if (status === 'granted') {
+        if (status !== 'granted') {
+          setError('Location permission is required to join FieldOps and appear on the live map.')
+          return
+        }
+
+        let loc: { lat: number; lng: number } | null = null
+        try {
+          const last = await Location.getLastKnownPositionAsync()
+          if (last) loc = { lat: last.coords.latitude, lng: last.coords.longitude }
+        } catch {
+          // fall through to a fresh fix
+        }
+        if (!loc) {
           const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
           loc = { lat: pos.coords.latitude, lng: pos.coords.longitude }
         }
@@ -52,9 +71,9 @@ export default function CapturingScreen({ navigation, route }: AuthScreenProps<'
           deviceName: name,
           appVersion: APP_VERSION,
           initialLocation: loc,
+          password,
         })
 
-        // Send the first real presence ping so ops sees you online immediately.
         setPhase('ping')
         try {
           await api('/pings', { method: 'POST', body: loc })
@@ -73,7 +92,7 @@ export default function CapturingScreen({ navigation, route }: AuthScreenProps<'
         setError(msg)
       }
     })()
-  }, [email, fullName, designation, setMe])
+  }, [email, fullName, designation, password, setMe])
 
   const steps: Step[] = [
     { done: deviceId !== '…', label: 'Device registered', value: `${deviceName} · ${deviceId}` },
@@ -89,7 +108,7 @@ export default function CapturingScreen({ navigation, route }: AuthScreenProps<'
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.center}>
-          <View style={[styles.errIcon]}>
+          <View style={styles.errIcon}>
             <Text style={{ color: C.redBright, fontSize: 26 }}>!</Text>
           </View>
           <Text style={styles.title}>Couldn&apos;t set you up</Text>
@@ -122,7 +141,7 @@ export default function CapturingScreen({ navigation, route }: AuthScreenProps<'
           <ActivityIndicator size="large" color={C.teal} />
         </View>
         <Text style={styles.title}>Setting you up</Text>
-        <Text style={styles.sub}>Capturing your device and real GPS fix — no mock location.</Text>
+        <Text style={styles.sub}>Capturing your device and real GPS fix.</Text>
 
         <View style={styles.card}>
           {steps.map((s, i) => (

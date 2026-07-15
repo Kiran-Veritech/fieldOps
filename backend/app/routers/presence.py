@@ -1,4 +1,4 @@
-"""Presence: employees push a location ping (every 10s while foregrounded),
+"""Presence: employees push a location ping (every 20s while foregrounded),
 and /me returns the profile with a live-derived online/offline field."""
 
 from __future__ import annotations

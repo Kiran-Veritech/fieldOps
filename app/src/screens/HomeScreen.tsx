@@ -8,6 +8,7 @@ import { OnlinePulseDot, PulsatingPing } from '../components/PulsatingPing'
 import { TASK_STATUS } from '../components/tokens'
 import { usePresence } from '../location/PresenceProvider'
 import { useMyWork } from '../hooks/useMyWork'
+import { useNetworkOnline } from '../hooks/useNetworkStatus'
 import { designationColor } from '../data/designations'
 import { initials, timeAgo } from '../lib/format'
 import { C, mono, RADIUS } from '../theme'
@@ -26,7 +27,16 @@ function pickUpNext(tasks: Task[]): Task | null {
 export default function HomeScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<AppTabParams>>()
   const { me, tasks, projectName, loaded } = useMyWork()
-  const { sharing, setSharing, lastPingAt, lastLocation, hasPermission, enableSharing } = usePresence()
+  const networkOnline = useNetworkOnline()
+  const {
+    lastPingAt,
+    lastLocation,
+    hasPermission,
+    enableSharing,
+    online: presenceOnline,
+    requestPermission,
+    pingNow,
+  } = usePresence()
   const [, setTick] = useState(0)
 
   useEffect(() => {
@@ -34,9 +44,11 @@ export default function HomeScreen() {
     return () => clearInterval(id)
   }, [])
 
+  // Presence "online" only counts when the device also has internet.
+  const online = presenceOnline && networkOnline
+
   const catColor = designationColor(me?.designation)
-  const live = sharing && hasPermission && lastPingAt !== null && Date.now() - lastPingAt < 60_000
-  const coords = lastLocation ?? me?.lastLocation ?? me?.initialLocation
+  const coords = lastLocation ?? me?.lastLocation ?? null
   const pingAgo = lastPingAt ? timeAgo(new Date(lastPingAt).toISOString()).toUpperCase() : '—'
 
   const counts = useMemo(
@@ -79,39 +91,24 @@ export default function HomeScreen() {
         <View style={styles.shareCard}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <Mono style={{ fontSize: 10, letterSpacing: 1, color: C.textFaint }}>LOCATION SHARING</Mono>
-            <Mono style={{ fontSize: 10, color: sharing && hasPermission ? C.tealBright : C.textFaint }}>
-              {sharing && hasPermission ? 'LIVE' : !hasPermission ? 'NO GPS' : 'PAUSED'}
+            <Mono style={{ fontSize: 10, color: online ? C.tealBright : C.textFaint }}>
+              {online ? 'LIVE' : !hasPermission ? 'NO GPS' : 'WAITING'}
             </Mono>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-            <View style={styles.radar}>
-              {sharing && hasPermission && <View style={styles.radarRing} />}
-              <View
-                style={[
-                  styles.radarDot,
-                  {
-                    backgroundColor: sharing && hasPermission ? C.teal : C.grey,
-                    shadowColor: sharing && hasPermission ? C.teal : 'transparent',
-                  },
-                ]}
-              />
-            </View>
+            <PulsatingPing active={online} color={C.teal} size={58} />
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 15, fontWeight: '600', color: C.text }}>
                 {!hasPermission
                   ? 'Location permission needed'
-                  : sharing
-                    ? 'Sharing every 10s'
-                    : 'Sharing paused'}
+                  : online
+                    ? 'Sharing every 20s'
+                    : 'Acquiring GPS fix…'}
               </Text>
-              <Mono style={{ fontSize: 11, color: sharing && hasPermission ? '#5BC7BB' : C.textFaint, marginTop: 4 }}>
-                {!hasPermission
-                  ? 'TAP ENABLE TO ALLOW GPS'
-                  : sharing
-                    ? `LAST PING ${pingAgo}`
-                    : 'NO PINGS TRANSMITTING'}
+              <Mono style={{ fontSize: 11, color: online ? '#5BC7BB' : C.textFaint, marginTop: 4 }}>
+                {!hasPermission ? 'TAP ALLOW TO ENABLE GPS' : `LAST PING ${pingAgo}`}
               </Mono>
-              {coords && hasPermission && (
+              {coords ? (
                 <Mono style={{ fontSize: 11, color: C.textFaint, marginTop: 2 }}>
                   {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
                 </Mono>
@@ -121,17 +118,24 @@ export default function HomeScreen() {
             </View>
           </View>
           <View style={styles.shareFoot}>
-            <Text style={{ fontSize: 11, color: C.textMute, flex: 1 }}>Stops when you close the app</Text>
-            <Pressable
-              onPress={() => {
-                if (!hasPermission) void enableSharing()
-                else setSharing(!sharing)
-              }}
-            >
-              <Mono style={{ fontSize: 10, color: C.tealText }}>
-                {!hasPermission ? 'Enable' : sharing ? 'Pause' : 'Resume'}
-              </Mono>
-            </Pressable>
+            <Text style={{ fontSize: 11, color: C.textMute, flex: 1 }}>
+              {!hasPermission
+                ? 'Allow location to appear on the live map'
+                : 'Always on while the app is open · stops when you close it'}
+            </Text>
+            {!hasPermission ? (
+              <Pressable
+                onPress={async () => {
+                  const ok = await requestPermission()
+                  if (ok) {
+                    void enableSharing()
+                    void pingNow()
+                  }
+                }}
+              >
+                <Mono style={{ fontSize: 10, color: C.tealText }}>Allow</Mono>
+              </Pressable>
+            ) : null}
           </View>
         </View>
 

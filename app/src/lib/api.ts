@@ -130,7 +130,7 @@ export async function register(body: {
   deviceName: string
   appVersion: string
   initialLocation: { lat: number; lng: number }
-  password?: string
+  password: string
 }): Promise<AuthResponse> {
   const res = await api<AuthResponse>('/auth/register', { method: 'POST', body, auth: false })
   await setTokens(res.tokens)

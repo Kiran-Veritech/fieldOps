@@ -19,6 +19,7 @@ export type Me = {
   createdAt: string | null
   flags: { type: string; detail: string; at: string }[]
   online: boolean
+  emailVerified?: boolean
 }
 
 export type Tokens = { accessToken: string; refreshToken: string; tokenType?: string }

@@ -12,6 +12,10 @@ import HomeScreen from '../screens/HomeScreen'
 import OnboardingScreen from '../screens/OnboardingScreen'
 import ProfileScreen from '../screens/ProfileScreen'
 import RegisterScreen from '../screens/RegisterScreen'
+import LoginScreen from '../screens/LoginScreen'
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen'
+import VerifyEmailScreen from '../screens/VerifyEmailScreen'
+import { OfflineBanner } from '../components/OfflineBanner'
 import { AssetsStack } from './AssetsStack'
 import { TasksStack } from './TasksStack'
 import type { AuthStackParams } from './types'
@@ -105,9 +109,14 @@ function AppTabs() {
 
 function AuthFlow() {
   return (
-    <AuthStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg } }}>
-      <AuthStack.Screen name="Onboarding" component={OnboardingScreen} />
+    <AuthStack.Navigator
+      initialRouteName="Login"
+      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg } }}
+    >
+      <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="Register" component={RegisterScreen} />
+      <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <AuthStack.Screen name="Onboarding" component={OnboardingScreen} />
       <AuthStack.Screen name="Consent" component={ConsentScreen} />
       <AuthStack.Screen name="Capturing" component={CapturingScreen} options={{ gestureEnabled: false }} />
     </AuthStack.Navigator>
@@ -129,7 +138,20 @@ export function RootNavigator() {
 
   return (
     <PresenceProvider>
-      <NavigationContainer theme={navTheme}>{me ? <AppTabs /> : <AuthFlow />}</NavigationContainer>
+      <View style={{ flex: 1, backgroundColor: C.bg }}>
+        <OfflineBanner />
+        <NavigationContainer theme={navTheme}>
+          {me ? (
+            me.emailVerified === false ? (
+              <VerifyEmailScreen />
+            ) : (
+              <AppTabs />
+            )
+          ) : (
+            <AuthFlow />
+          )}
+        </NavigationContainer>
+      </View>
     </PresenceProvider>
   )
 }

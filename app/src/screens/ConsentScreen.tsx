@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { PrimaryButton } from '../components/ui'
 import { usePresence } from '../location/PresenceProvider'
@@ -8,7 +8,7 @@ import type { AuthScreenProps } from '../navigation/types'
 
 const ROWS: { title: string; body: string; accent?: string }[] = [
   { title: "What's collected", body: 'Your precise GPS location and device ID.' },
-  { title: 'How often', body: 'A ping every 10 seconds, only while the app is open on screen.' },
+  { title: 'How often', body: 'A ping every 20 seconds, only while the app is open on screen.' },
   {
     title: 'When it stops',
     body: 'The moment you close or background the app. No background tracking, ever.',
@@ -22,8 +22,6 @@ export default function ConsentScreen({ navigation, route }: AuthScreenProps<'Co
   const [busy, setBusy] = useState(false)
   const [denied, setDenied] = useState(false)
 
-  const proceedAfter = () => navigation.navigate('Capturing', route.params)
-
   const allow = async () => {
     if (busy) return
     setBusy(true)
@@ -31,10 +29,14 @@ export default function ConsentScreen({ navigation, route }: AuthScreenProps<'Co
     try {
       const granted = await requestPermission()
       if (granted) {
-        proceedAfter()
+        navigation.navigate('Capturing', route.params)
         return
       }
       setDenied(true)
+      Alert.alert(
+        'Location required',
+        'FieldOps needs location while you use the app so operations can see you on the live map.',
+      )
     } finally {
       setBusy(false)
     }
@@ -46,7 +48,10 @@ export default function ConsentScreen({ navigation, route }: AuthScreenProps<'Co
       'Without GPS you cannot register or appear online. Allow location to join your team.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Allow location', onPress: () => void proceed() },
+        { text: 'Allow location', onPress: () => void allow() },
+        ...(!canAskAgain
+          ? [{ text: 'Open settings', onPress: () => void openSystemSettings() }]
+          : []),
       ],
     )
   }
@@ -88,7 +93,7 @@ export default function ConsentScreen({ navigation, route }: AuthScreenProps<'Co
       <View style={styles.footer}>
         <PrimaryButton
           label={busy ? 'Requesting…' : 'Allow while using the app'}
-          onPress={allow}
+          onPress={() => void allow()}
           disabled={busy}
           loading={busy}
         />
@@ -97,18 +102,8 @@ export default function ConsentScreen({ navigation, route }: AuthScreenProps<'Co
             <Text style={styles.secondaryText}>Open settings</Text>
           </Pressable>
         )}
-        <Pressable
-          style={styles.secondary}
-          disabled={busy}
-          onPress={proceedAfter}
-          accessibilityRole="button"
-          accessibilityLabel="Continue without location"
-        >
-          {busy ? (
-            <ActivityIndicator color={C.textDim} />
-          ) : (
-            <Text style={styles.skipText}>Continue without location</Text>
-          )}
+        <Pressable style={styles.secondary} onPress={onNotNow} disabled={busy}>
+          <Text style={styles.skipText}>Not now</Text>
         </Pressable>
       </View>
     </SafeAreaView>

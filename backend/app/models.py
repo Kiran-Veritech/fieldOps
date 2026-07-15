@@ -205,6 +205,14 @@ class User(MongoModel):
     createdAt: datetime = Field(default_factory=_utcnow)
     status: UserStatus = UserStatus.ACTIVE
     flags: list[UserFlag] = Field(default_factory=list)
+    # Email OTP verification (self-registration). Seeded / legacy users default verified.
+    emailVerified: bool = True
+    emailOtpHash: str | None = None
+    emailOtpExpiresAt: datetime | None = None
+    emailOtpSentAt: datetime | None = None
+    passwordResetOtpHash: str | None = None
+    passwordResetOtpExpiresAt: datetime | None = None
+    passwordResetOtpSentAt: datetime | None = None
 
 
 class Ping(MongoModel):

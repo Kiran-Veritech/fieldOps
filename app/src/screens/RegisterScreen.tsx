@@ -18,10 +18,13 @@ import { C, mono, RADIUS } from '../theme'
 import type { AuthScreenProps } from '../navigation/types'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const MIN_PASSWORD = 6
 
 export default function RegisterScreen({ navigation }: AuthScreenProps<'Register'>) {
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
   const [designation, setDesignation] = useState<string | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [touchedEmail, setTouchedEmail] = useState(false)
@@ -37,8 +40,17 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
   const emailWellFormed = EMAIL_RE.test(email.trim())
   const domainApproved = domains.length === 0 || (domain !== '' && domains.includes(domain))
   const emailError = touchedEmail && email.length > 0 && (!emailWellFormed || !domainApproved)
+  const passwordOk = password.length >= MIN_PASSWORD
+  const confirmOk = confirm.length > 0 && confirm === password
+  const passwordMismatch = confirm.length > 0 && confirm !== password
 
-  const valid = emailWellFormed && domainApproved && fullName.trim().length > 0 && !!designation
+  const valid =
+    emailWellFormed &&
+    domainApproved &&
+    fullName.trim().length > 0 &&
+    !!designation &&
+    passwordOk &&
+    confirmOk
 
   const catColor = useMemo(
     () => (designation ? designationColor(designation) : C.blue),
@@ -61,7 +73,7 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
               value={email}
               onChangeText={setEmail}
               onBlur={() => setTouchedEmail(true)}
-              placeholder={domains[0] ? `you@${domains[0]}` : 'you@company.com'}
+              placeholder={domains[0] ? `you@${domains[0]}` : 'you@veritech.ai'}
               placeholderTextColor={C.textFaint}
               autoCapitalize="none"
               keyboardType="email-address"
@@ -69,6 +81,9 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
               style={styles.inputText}
             />
           </View>
+          <Mono style={styles.domainHint}>
+            the approved domain will be {domains[0] ?? 'veritech.ai'}
+          </Mono>
           {emailError && (
             <View style={styles.errorRow}>
               <Text style={styles.errorText}>
@@ -79,8 +94,9 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                 work email
                 {domain ? (
                   <Text>
-                    {' '}— <Text style={{ fontFamily: mono, fontSize: 11 }}>{domain}</Text> isn&apos;t an approved
-                    domain.
+                    {' '}
+                    — <Text style={{ fontFamily: mono, fontSize: 11 }}>{domain}</Text> isn&apos;t an
+                    approved domain.
                   </Text>
                 ) : (
                   '.'
@@ -102,6 +118,39 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
           </View>
 
           <View style={{ height: 18 }} />
+          <FieldLabel>PASSWORD</FieldLabel>
+          <View style={styles.input}>
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              placeholder={`At least ${MIN_PASSWORD} characters`}
+              placeholderTextColor={C.textFaint}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={styles.inputText}
+            />
+          </View>
+
+          <View style={{ height: 18 }} />
+          <FieldLabel>CONFIRM PASSWORD</FieldLabel>
+          <View style={[styles.input, passwordMismatch && { borderColor: C.redSoft }]}>
+            <TextInput
+              value={confirm}
+              onChangeText={setConfirm}
+              placeholder="Re-enter password"
+              placeholderTextColor={C.textFaint}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={styles.inputText}
+            />
+          </View>
+          {passwordMismatch && (
+            <Text style={[styles.errorText, { marginTop: 8 }]}>Passwords do not match</Text>
+          )}
+
+          <View style={{ height: 18 }} />
           <FieldLabel>DESIGNATION</FieldLabel>
           <Pressable style={styles.select} onPress={() => setPickerOpen(true)}>
             {designation ? (
@@ -115,7 +164,9 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
             <Mono style={{ color: C.textFaint, fontSize: 12 }}>▾</Mono>
           </Pressable>
           <Mono style={{ fontSize: 10, color: C.textFaint, marginTop: 7 }}>
-            {cat ? `${CATEGORY_LABEL[cat].replace(' & DESIGN', ' & Design')} · sets your map marker colour` : 'Sets your map marker colour'}
+            {cat
+              ? `${CATEGORY_LABEL[cat].replace(' & DESIGN', ' & Design')} · sets your map marker colour`
+              : 'Sets your map marker colour'}
           </Mono>
         </ScrollView>
 
@@ -128,12 +179,15 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                 email: email.trim(),
                 fullName: fullName.trim(),
                 designation: designation as string,
+                password,
               })
             }
           />
           <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 14 }}>
             <Text style={{ fontSize: 12, color: C.textMute }}>Already registered? </Text>
-            <Mono style={{ fontSize: 12, color: C.tealText }}>Sign in</Mono>
+            <Pressable onPress={() => navigation.navigate('Login')}>
+              <Mono style={{ fontSize: 12, color: C.tealText }}>Sign in</Mono>
+            </Pressable>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -175,6 +229,12 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS,
     paddingHorizontal: 13,
     paddingVertical: 13,
+  },
+  domainHint: {
+    fontSize: 10,
+    color: C.textFaint,
+    marginTop: 7,
+    letterSpacing: 0.2,
   },
   errorRow: { marginTop: 8 },
   errorText: { fontSize: 12, color: '#FF8F94', lineHeight: 18 },
