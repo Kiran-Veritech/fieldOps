@@ -146,23 +146,42 @@ python seed.py
 
 ### Admin (Vite)
 
-Set the admin API base URL to:
+**Development** (`admin/.env`):
 
-```text
-https://YOUR-SERVICE.onrender.com/api/v1
+```bash
+VITE_API_URL=http://localhost:8000
 ```
 
-Add the admin origin to `CORS_ORIGINS` on Render.
+**Production** (`admin/.env.production` — used automatically by `npm run build`):
+
+```bash
+VITE_API_URL=https://fieldops-nexus.onrender.com
+```
+
+Build:
+
+```bash
+cd admin && npm run build
+```
+
+Output: `admin/dist/`. Add the admin hosting origin to `CORS_ORIGINS` on Render
+(e.g. `https://your-admin.vercel.app` or `http://localhost:4173` for `vite preview`).
 
 ### Mobile app (Expo)
 
-Set:
+**Development** (`app/.env`):
 
 ```bash
-EXPO_PUBLIC_API_URL=https://YOUR-SERVICE.onrender.com
+EXPO_PUBLIC_API_URL=http://localhost:8000
 ```
 
-Then rebuild the APK (env is baked in at build time). The app appends `/api/v1` itself.
+**Production** (`app/.env.production` — used for release / production APK builds):
+
+```bash
+EXPO_PUBLIC_API_URL=https://fieldops-nexus.onrender.com
+```
+
+The app appends `/api/v1` itself. Rebuild the release APK after changing production env.
 
 ---
 

@@ -10,17 +10,21 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from . import repository as repo
 from .security import ACCESS, decode_token
 
-bearer_scheme = HTTPBearer(auto_error=True)
+# auto_error=False so missing credentials return 401 (not FastAPI's default 403).
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
 ) -> dict:
     unauthorized = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid or expired credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    if credentials is None or credentials.scheme.lower() != "bearer" or not credentials.credentials:
+        raise unauthorized
+
     try:
         payload = decode_token(credentials.credentials)
     except jwt.PyJWTError:

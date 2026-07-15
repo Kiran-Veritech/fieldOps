@@ -13,6 +13,17 @@ const REFRESH_KEY = 'fon.refreshToken'
 let accessToken: string | null = null
 let refreshToken: string | null = null
 
+/** Called when the session is unrecoverable so AuthContext can clear `me`. */
+let onUnauthorized: (() => void) | null = null
+
+export function setUnauthorizedHandler(handler: (() => void) | null) {
+  onUnauthorized = handler
+}
+
+function notifyUnauthorized() {
+  onUnauthorized?.()
+}
+
 export async function loadTokens(): Promise<Tokens | null> {
   const [a, r] = await Promise.all([
     AsyncStorage.getItem(ACCESS_KEY),
@@ -95,6 +106,21 @@ async function parse(res: Response): Promise<unknown> {
 
 export async function api<T = unknown>(path: string, opts: Options = {}): Promise<T> {
   const { method = 'GET', body, auth = true, _retried = false } = opts
+
+  if (auth && !accessToken && !refreshToken) {
+    notifyUnauthorized()
+    throw new ApiError(401, null, 'Not signed in')
+  }
+
+  // Access expired but refresh still present — try once before the real call.
+  if (auth && !accessToken && refreshToken && !_retried) {
+    const ok = await refreshAccess()
+    if (!ok) {
+      notifyUnauthorized()
+      throw new ApiError(401, null, 'Session expired')
+    }
+  }
+
   const headers: Record<string, string> = {}
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (auth && accessToken) headers['Authorization'] = `Bearer ${accessToken}`
@@ -105,9 +131,15 @@ export async function api<T = unknown>(path: string, opts: Options = {}): Promis
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
 
-  if (res.status === 401 && auth && !_retried && refreshToken) {
+  if ((res.status === 401 || res.status === 403) && auth && !_retried && refreshToken) {
     const ok = await refreshAccess()
     if (ok) return api<T>(path, { ...opts, _retried: true })
+    notifyUnauthorized()
+  }
+
+  if ((res.status === 401 || res.status === 403) && auth && !_retried && !refreshToken) {
+    await clearTokens()
+    notifyUnauthorized()
   }
 
   const payload = await parse(res)
@@ -180,15 +212,26 @@ export async function enlistAsset(fields: {
     } as unknown as Blob)
   }
 
-  const headers: Record<string, string> = {}
-  if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`
+  if (!accessToken && refreshToken) {
+    await refreshAccess()
+  }
+  if (!accessToken) {
+    notifyUnauthorized()
+    throw new ApiError(401, null, 'Not signed in')
+  }
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+  }
 
   let res = await fetch(`${BASE}/assets`, { method: 'POST', headers, body: form })
-  if (res.status === 401 && refreshToken) {
+  if ((res.status === 401 || res.status === 403) && refreshToken) {
     const ok = await refreshAccess()
-    if (ok) {
-      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`
+    if (ok && accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`
       res = await fetch(`${BASE}/assets`, { method: 'POST', headers, body: form })
+    } else {
+      notifyUnauthorized()
     }
   }
   const payload = await parse(res)

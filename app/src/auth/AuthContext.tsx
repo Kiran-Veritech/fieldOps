@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { api, clearTokens, loadTokens } from '../lib/api'
+import { api, clearTokens, loadTokens, setUnauthorizedHandler } from '../lib/api'
 import type { Me } from '../types'
 
 type AuthState = {
@@ -16,6 +16,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false)
   const [me, setMe] = useState<Me | null>(null)
 
+  const signOut = useCallback(async () => {
+    await clearTokens()
+    setMe(null)
+  }, [])
+
   const refreshMe = useCallback(async (): Promise<Me | null> => {
     try {
       const fresh = await api<Me>('/me')
@@ -26,9 +31,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const signOut = useCallback(async () => {
-    await clearTokens()
-    setMe(null)
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      setMe(null)
+      void clearTokens()
+    })
+    return () => setUnauthorizedHandler(null)
   }, [])
 
   useEffect(() => {
@@ -42,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (!cancelled) setMe(fresh)
           } catch {
             await clearTokens()
+            if (!cancelled) setMe(null)
           }
         }
       } finally {
